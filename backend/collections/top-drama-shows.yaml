@@ -1,0 +1,14 @@
+slug: top-drama-shows
+name: Top Drama Shows
+description: |
+  The highest-rated drama TV series, from prestige cable epics and network classics to streaming-era masterpieces that redefine long-form storytelling.
+strategy: filter
+pinned: false
+languages: [en]
+regions: [global]
+filter:
+  type: show
+  genre: Drama
+  sort: top_rated
+  min_votes: 5000
+  limit: 100

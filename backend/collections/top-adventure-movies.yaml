@@ -1,0 +1,15 @@
+slug: top-adventure-movies
+name: Top Adventure Movies
+description: |
+  The greatest adventure films ever made, ranked by audience ratings.
+  These movies transport viewers to uncharted territories, lost civilizations, and perilous quests that ignite the spirit of exploration and discovery.
+strategy: filter
+pinned: false
+languages: [en]
+regions: [global]
+filter:
+  type: movie
+  genre: Adventure
+  sort: top_rated
+  min_votes: 5000
+  limit: 100

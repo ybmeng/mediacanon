@@ -1,0 +1,15 @@
+slug: top-war-movies
+name: Top War Movies
+description: |
+  The highest-rated war films that portray the brutal reality and human cost of armed conflict.
+  These movies honor the courage and sacrifice of soldiers while unflinchingly depicting the chaos of battle and the moral dilemmas that war imposes on all who endure it.
+strategy: filter
+pinned: false
+languages: [en]
+regions: [global]
+filter:
+  type: movie
+  genre: War
+  sort: top_rated
+  min_votes: 5000
+  limit: 100

@@ -1,0 +1,14 @@
+slug: top-adventure-shows
+name: Top Adventure Shows
+description: |
+  The highest-rated adventure TV series that transport viewers to uncharted worlds, epic quests, and journeys that span continents and galaxies.
+strategy: filter
+pinned: false
+languages: [en]
+regions: [global]
+filter:
+  type: show
+  genre: Adventure
+  sort: top_rated
+  min_votes: 5000
+  limit: 100

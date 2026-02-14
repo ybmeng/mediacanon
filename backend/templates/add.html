@@ -1,0 +1,66 @@
+{{define "body"}}
+<h1>Add New Title</h1>
+
+<form id="add-form" class="add-title-form">
+    <label>
+        Type
+        <select name="type" required>
+            <option value="movie">Movie</option>
+            <option value="show">TV Show</option>
+        </select>
+    </label>
+
+    <label>
+        Display Name
+        <input type="text" name="display_name" required placeholder="e.g. Severance">
+    </label>
+
+    <label>
+        Year
+        <input type="number" name="year" placeholder="2022" min="1800" max="2100">
+    </label>
+
+    <label>
+        IMDb ID
+        <input type="text" name="imdb_id" placeholder="tt1234567">
+    </label>
+
+    <label>
+        Image URL
+        <input type="url" name="image_url" placeholder="https://...">
+    </label>
+
+    <button type="submit">Create</button>
+</form>
+
+<script>
+document.getElementById('add-form').onsubmit = async (e) => {
+    e.preventDefault();
+    const form = e.target;
+    const type = form.type.value;
+    const data = {
+        display_name: form.display_name.value,
+        year: form.year.value ? parseInt(form.year.value) : null,
+        imdb_id: form.imdb_id.value || null,
+        image_url: form.image_url.value || null
+    };
+
+    const endpoint = type === 'movie' ? '/api/movies' : '/api/shows';
+    const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(data)
+    });
+
+    if (res.ok) {
+        const result = await res.json();
+        location.href = type === 'movie' ? '/movies/' + result.id : '/shows/' + result.id;
+    } else {
+        const err = await res.json();
+        alert('Error: ' + err.error);
+    }
+};
+</script>
+{{end}}
+
+{{template "base" .}}

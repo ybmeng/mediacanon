@@ -1,0 +1,14 @@
+slug: top-fantasy-shows
+name: Top Fantasy Shows
+description: |
+  The highest-rated fantasy TV series that conjure mythical worlds, epic battles between good and evil, and magic systems that captivate millions.
+strategy: filter
+pinned: false
+languages: [en]
+regions: [global]
+filter:
+  type: show
+  genre: Fantasy
+  sort: top_rated
+  min_votes: 5000
+  limit: 100

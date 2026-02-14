@@ -1,0 +1,15 @@
+slug: top-family-movies
+name: Top Family Movies
+description: |
+  The best family-friendly films that entertain audiences of all ages.
+  These movies blend heartwarming stories, memorable characters, and universal themes that bring families together and create lasting shared experiences.
+strategy: filter
+pinned: false
+languages: [en]
+regions: [global]
+filter:
+  type: movie
+  genre: Family
+  sort: top_rated
+  min_votes: 5000
+  limit: 100

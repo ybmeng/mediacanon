@@ -1,0 +1,15 @@
+slug: top-dating-shows
+name: Top Dating Shows
+description: |
+  The highest-rated dating TV series as voted by audiences worldwide.
+  From Love Is Blind to The Bachelor, these shows turn the search for love into must-watch television.
+strategy: filter
+pinned: false
+languages: [en]
+regions: [global]
+filter:
+  type: show
+  genre: Dating
+  sort: top_rated
+  min_votes: 5000
+  limit: 100

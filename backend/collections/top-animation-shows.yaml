@@ -1,0 +1,14 @@
+slug: top-animation-shows
+name: Top Animation Shows
+description: |
+  The highest-rated animated TV series, from beloved children's classics to sophisticated adult animation that pushes the boundaries of the medium.
+strategy: filter
+pinned: false
+languages: [en]
+regions: [global]
+filter:
+  type: show
+  genre: Animation
+  sort: top_rated
+  min_votes: 5000
+  limit: 100

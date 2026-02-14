@@ -1,0 +1,14 @@
+slug: top-crime-shows
+name: Top Crime Shows
+description: |
+  The highest-rated crime TV series, from gritty police procedurals and mob sagas to intricate whodunits and true crime investigations.
+strategy: filter
+pinned: false
+languages: [en]
+regions: [global]
+filter:
+  type: show
+  genre: Crime
+  sort: top_rated
+  min_votes: 5000
+  limit: 100

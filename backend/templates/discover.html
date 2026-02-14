@@ -1,0 +1,260 @@
+{{define "body"}}
+<div class="discover">
+    <h1>Discover</h1>
+
+    <div class="discover-chips">
+        <div class="chip-row">
+            <span class="chip-label">Type</span>
+            <a href="{{chipURL $ "type" "movie"}}" class="filter-chip{{if eq .Type "movie"}} active{{end}}">Movies</a>
+            <a href="{{chipURL $ "type" "show"}}" class="filter-chip{{if eq .Type "show"}} active{{end}}">Shows</a>
+        </div>
+        {{if .GenreChips}}
+        <div class="chip-row">
+            <span class="chip-label">Genre</span>
+            {{range .GenreChips}}
+            <a href="{{chipURL $ "genre" .Name}}" class="filter-chip{{if eq $.Genre .Name}} active{{end}}">{{.Name}}</a>
+            {{end}}
+        </div>
+        {{end}}
+        {{if .CountryChips}}
+        <div class="chip-row">
+            <span class="chip-label">Country</span>
+            {{range .CountryChips}}
+            <a href="{{chipURL $ "country" .Code}}" class="filter-chip{{if eq $.Country .Code}} active{{end}}">{{countryDisplay .Code}}</a>
+            {{end}}
+        </div>
+        {{end}}
+        <div class="chip-row">
+            <span class="chip-label">Sort</span>
+            <a href="{{chipURL $ "sort" "most_rated"}}" class="filter-chip{{if eq .Sort "most_rated"}} active{{end}}">Most Rated</a>
+            <a href="{{chipURL $ "sort" "top_rated"}}" class="filter-chip{{if eq .Sort "top_rated"}} active{{end}}">Top Rated</a>
+            <a href="{{chipURL $ "sort" "newest"}}" class="filter-chip{{if eq .Sort "newest"}} active{{end}}">Newest</a>
+            <a href="{{chipURL $ "sort" "trending"}}" class="filter-chip{{if eq .Sort "trending"}} active{{end}}">Trending</a>
+            <a href="{{chipURL $ "sort" "a-z"}}" class="filter-chip{{if eq .Sort "a-z"}} active{{end}}">A–Z</a>
+        </div>
+    </div>
+
+    {{/* Collection detail view */}}
+    {{if .ActiveCollection}}
+    <div class="discover-section">
+        <h2>{{.ActiveCollection.Name}}</h2>
+        {{if .ActiveCollection.Description}}<p class="section-desc">{{.ActiveCollection.Description}}</p>{{end}}
+        <div class="poster-grid">
+            {{range .CollectionTitles}}
+            <a href="{{if .MovieID}}/movies/{{derefInt .MovieID}}{{else if .ShowID}}/shows/{{derefInt .ShowID}}{{else}}/titles{{end}}?source=collection-{{$.ActiveCollection.Slug}}" class="poster-card">
+                {{if .ImageURL}}<img src="{{derefStr .ImageURL}}" alt="{{.DisplayName}}" loading="lazy">{{else}}<div class="poster-placeholder">{{.DisplayName}}</div>{{end}}
+                <div class="poster-stats">
+                    {{if .AverageRating}}<span class="poster-rating-badge">{{printf "%.1f" (derefFloat .AverageRating)}}</span>{{end}}
+                    {{if .NumVotes}}<span class="poster-votes-badge">{{fmtVotes .NumVotes}}</span>{{end}}
+                    {{if .EngagementCount}}<span class="poster-eng-badge">{{.EngagementCount}} this week</span>{{end}}
+                </div>
+                <div class="poster-overlay">
+                    <span class="poster-title">{{.DisplayName}}</span>
+                    {{if .Year}}<span class="poster-year">{{derefInt .Year}}</span>{{end}}
+                    {{if .Genres}}<span class="poster-genres">{{join .Genres ", "}}</span>{{end}}
+                </div>
+            </a>
+            {{end}}
+        </div>
+        <p style="margin-top: 1rem"><a href="/discover">Back to Discover</a></p>
+    </div>
+
+    {{/* Filtered results */}}
+    {{else if .HasFilters}}
+    <form class="discover-filters" method="get" action="/discover">
+        <select name="type">
+            <option value="">All Types</option>
+            <option value="movie"{{if eq .Type "movie"}} selected{{end}}>Movies</option>
+            <option value="show"{{if eq .Type "show"}} selected{{end}}>Shows</option>
+        </select>
+        <select name="sort">
+            <option value="">Sort By</option>
+            <option value="top_rated"{{if eq .Sort "top_rated"}} selected{{end}}>Top Rated</option>
+            <option value="newest"{{if eq .Sort "newest"}} selected{{end}}>Newest</option>
+            <option value="a-z"{{if eq .Sort "a-z"}} selected{{end}}>A-Z</option>
+        </select>
+        <select name="rating_min">
+            <option value="">Min Rating</option>
+            <option value="9"{{if eq .RatingMin "9"}} selected{{end}}>9+</option>
+            <option value="8"{{if eq .RatingMin "8"}} selected{{end}}>8+</option>
+            <option value="7"{{if eq .RatingMin "7"}} selected{{end}}>7+</option>
+            <option value="6"{{if eq .RatingMin "6"}} selected{{end}}>6+</option>
+        </select>
+        <input type="number" name="year_min" placeholder="Year from" value="{{.YearMin}}" min="1900" max="2030">
+        {{if .Genre}}<input type="hidden" name="genre" value="{{.Genre}}">{{end}}
+        {{if .Lang}}<input type="hidden" name="lang" value="{{.Lang}}">{{end}}
+        {{if .Country}}<input type="hidden" name="country" value="{{.Country}}">{{end}}
+        <button type="submit" class="btn">Apply</button>
+        <a href="/discover" class="clear-link">Clear</a>
+    </form>
+    <div class="discover-section">
+        <h2>Results{{if .FilteredTotal}} <span class="carousel-count">({{.FilteredTotal}})</span>{{end}}</h2>
+        {{if .FilteredTitles}}
+        <div class="poster-grid" id="discover-grid">
+            {{range .FilteredTitles}}
+            <a href="{{if .MovieID}}/movies/{{derefInt .MovieID}}{{else if .ShowID}}/shows/{{derefInt .ShowID}}{{else}}/titles{{end}}?source=discover" class="poster-card">
+                {{if .ImageURL}}<img src="{{derefStr .ImageURL}}" alt="{{.DisplayName}}" loading="lazy">{{else}}<div class="poster-placeholder">{{.DisplayName}}</div>{{end}}
+                <div class="poster-stats">
+                    {{if .AverageRating}}<span class="poster-rating-badge">{{printf "%.1f" (derefFloat .AverageRating)}}</span>{{end}}
+                    {{if .NumVotes}}<span class="poster-votes-badge">{{fmtVotes .NumVotes}}</span>{{end}}
+                    {{if .EngagementCount}}<span class="poster-eng-badge">{{.EngagementCount}} this week</span>{{end}}
+                </div>
+                <div class="poster-overlay">
+                    <span class="poster-title">{{.DisplayName}}</span>
+                    {{if .Year}}<span class="poster-year">{{derefInt .Year}}</span>{{end}}
+                    {{if .Genres}}<span class="poster-genres">{{join .Genres ", "}}</span>{{end}}
+                </div>
+            </a>
+            {{end}}
+        </div>
+        {{if gt .FilteredTotal 100}}
+        <div id="discover-loader" class="discover-loader">Loading more...</div>
+        {{end}}
+        {{else}}
+        <p class="no-results">No titles found matching your filters.</p>
+        {{end}}
+    </div>
+
+    {{/* Default: alternating collection carousels */}}
+    {{else}}
+    {{range .Sections}}
+    {{if .Titles}}
+    <div class="carousel-section">
+        <div class="carousel-header">
+            <a href="/discover?collection={{.Slug}}" class="carousel-title-link">
+                <h2>{{.Title}}{{if .TotalCount}} <span class="carousel-count">({{.TotalCount}})</span>{{end}}</h2>
+            </a>
+            {{if .EngagementCount}}<span class="engagement-badge">{{printf "%.0f" .EngagementCount}} this week</span>{{end}}
+        </div>
+        <div class="carousel-wrap">
+            <button class="carousel-arrow carousel-prev" aria-label="Previous">&lsaquo;</button>
+            <div class="carousel-track">
+                {{$slug := .Slug}}
+                {{range .Titles}}
+                <a href="{{if .MovieID}}/movies/{{derefInt .MovieID}}{{else if .ShowID}}/shows/{{derefInt .ShowID}}{{else}}/titles{{end}}?source=collection-{{$slug}}" class="poster-card">
+                    {{if .ImageURL}}<img src="{{derefStr .ImageURL}}" alt="{{.DisplayName}}" loading="lazy">{{else}}<div class="poster-placeholder">{{.DisplayName}}</div>{{end}}
+                    <div class="poster-stats">
+                        {{if .AverageRating}}<span class="poster-rating-badge">{{printf "%.1f" (derefFloat .AverageRating)}}</span>{{end}}
+                        {{if .NumVotes}}<span class="poster-votes-badge">{{fmtVotes .NumVotes}}</span>{{end}}
+                        {{if .EngagementCount}}<span class="poster-eng-badge">{{.EngagementCount}} this week</span>{{end}}
+                    </div>
+                    <div class="poster-overlay">
+                        <span class="poster-title">{{.DisplayName}}</span>
+                        {{if .Year}}<span class="poster-year">{{derefInt .Year}}</span>{{end}}
+                    </div>
+                </a>
+                {{end}}
+            </div>
+            <button class="carousel-arrow carousel-next" aria-label="Next">&rsaquo;</button>
+        </div>
+    </div>
+    {{end}}
+    {{end}}
+    {{end}}
+</div>
+
+<script>
+(function() {
+    document.querySelectorAll('.carousel-section').forEach(function(section) {
+        var track = section.querySelector('.carousel-track');
+        var prev = section.querySelector('.carousel-prev');
+        var next = section.querySelector('.carousel-next');
+
+        function pageWidth() {
+            // Scroll by visible width minus one card for continuity
+            return track.clientWidth;
+        }
+
+        function updateArrows() {
+            prev.classList.toggle('hidden', track.scrollLeft < 10);
+            next.classList.toggle('hidden',
+                track.scrollLeft >= track.scrollWidth - track.clientWidth - 10);
+        }
+
+        prev.addEventListener('click', function() {
+            track.scrollBy({ left: -pageWidth(), behavior: 'smooth' });
+        });
+        next.addEventListener('click', function() {
+            track.scrollBy({ left: pageWidth(), behavior: 'smooth' });
+        });
+
+        // Update arrows after scroll animation settles
+        track.addEventListener('scrollend', updateArrows);
+        // Fallback for browsers without scrollend
+        track.addEventListener('scroll', function() {
+            clearTimeout(track._arrowTimer);
+            track._arrowTimer = setTimeout(updateArrows, 150);
+        });
+
+        updateArrows();
+    });
+
+})();
+
+// Infinite scroll for filtered results
+(function() {
+    var grid = document.getElementById('discover-grid');
+    var loader = document.getElementById('discover-loader');
+    if (!grid || !loader) return;
+
+    var page = 1;
+    var loading = false;
+    var done = false;
+    var total = {{if .FilteredTotal}}{{.FilteredTotal}}{{else}}0{{end}};
+    var params = window.location.search;
+
+    var observer = new IntersectionObserver(function(entries) {
+        if (entries[0].isIntersecting && !loading && !done) {
+            loading = true;
+            page++;
+            var url = '/api/discover' + params + (params ? '&' : '?') + 'page=' + page;
+            fetch(url).then(function(r) { return r.json(); }).then(function(data) {
+                if (!data.titles || data.titles.length === 0) {
+                    done = true;
+                    loader.style.display = 'none';
+                    return;
+                }
+                data.titles.forEach(function(t) {
+                    var href = '/titles';
+                    if (t.movie_id) href = '/movies/' + t.movie_id + '?source=discover';
+                    else if (t.show_id) href = '/shows/' + t.show_id + '?source=discover';
+                    var card = document.createElement('a');
+                    card.href = href;
+                    card.className = 'poster-card';
+                    var img = '';
+                    if (t.image_url) {
+                        img = '<img src="' + t.image_url + '" alt="' + t.display_name.replace(/"/g, '&quot;') + '" loading="lazy">';
+                    } else {
+                        img = '<div class="poster-placeholder">' + t.display_name + '</div>';
+                    }
+                    var stats = '<div class="poster-stats">';
+                    if (t.average_rating) stats += '<span class="poster-rating-badge">' + t.average_rating.toFixed(1) + '</span>';
+                    if (t.num_votes) {
+                        var v = t.num_votes;
+                        var vs = v >= 1000000 ? (v/1000000).toFixed(1)+'M' : v >= 1000 ? (v/1000).toFixed(1)+'K' : v;
+                        stats += '<span class="poster-votes-badge">' + vs + '</span>';
+                    }
+                    stats += '</div>';
+                    var overlay = '<div class="poster-overlay"><span class="poster-title">' + t.display_name + '</span>';
+                    if (t.year) overlay += '<span class="poster-year">' + t.year + '</span>';
+                    if (t.genres && t.genres.length) overlay += '<span class="poster-genres">' + t.genres.join(', ') + '</span>';
+                    overlay += '</div>';
+                    card.innerHTML = img + stats + overlay;
+                    grid.appendChild(card);
+                });
+                var loaded = grid.querySelectorAll('.poster-card').length;
+                if (loaded >= total) {
+                    done = true;
+                    loader.style.display = 'none';
+                }
+                loading = false;
+            }).catch(function() { loading = false; });
+        }
+    }, { rootMargin: '200px' });
+
+    observer.observe(loader);
+})();
+</script>
+{{end}}
+
+{{template "base" .}}

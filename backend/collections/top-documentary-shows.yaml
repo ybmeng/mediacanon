@@ -1,0 +1,14 @@
+slug: top-documentary-shows
+name: Top Documentary Shows
+description: |
+  The highest-rated documentary TV series that illuminate reality, from nature epics and historical deep dives to investigative journalism and cultural explorations.
+strategy: filter
+pinned: false
+languages: [en]
+regions: [global]
+filter:
+  type: show
+  genre: Documentary
+  sort: top_rated
+  min_votes: 5000
+  limit: 100

@@ -1,0 +1,14 @@
+slug: top-horror-shows
+name: Top Horror Shows
+description: |
+  The highest-rated horror TV series that sustain dread across entire seasons, from supernatural anthologies and psychological thrillers to creature features and cosmic terror.
+strategy: filter
+pinned: false
+languages: [en]
+regions: [global]
+filter:
+  type: show
+  genre: Horror
+  sort: top_rated
+  min_votes: 5000
+  limit: 100

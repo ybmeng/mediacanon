@@ -1,0 +1,12 @@
+#!/bin/bash
+set -e
+
+DB="${DATABASE_URL:-postgres://localhost/mediacanon?sslmode=disable}"
+
+echo "Running schema migration..."
+psql "$DB" -f "$(dirname "$0")/backend/schema.sql"
+
+echo "Setting all titles to needs_backfill_tmdb = true..."
+COUNT=$(psql "$DB" -tAc "UPDATE titles SET needs_backfill_tmdb = true RETURNING 1" | wc -l | tr -d ' ')
+
+echo "Done. $COUNT titles flagged for TMDB backfill."

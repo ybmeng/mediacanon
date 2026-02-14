@@ -1,0 +1,22 @@
+#!/bin/bash
+set -e
+
+source ~/.bashrc
+
+cd "$(dirname "$0")/backend"
+
+# Stop existing services
+launchctl bootout gui/$(id -u)/com.mediacanon.server 2>/dev/null || true
+launchctl bootout gui/$(id -u)/com.mediacanon.tunnel 2>/dev/null || true
+sleep 1
+
+echo "Building..."
+CGO_ENABLED=1 go build -o mediacanon .
+
+echo "Starting mediacanon via launchd..."
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.mediacanon.server.plist
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.mediacanon.tunnel.plist
+
+echo "Done. Server and tunnel running as launchd services."
+echo "  Check status: launchctl print gui/\$(id -u)/com.mediacanon.server"
+echo "  View logs:    tail -f /tmp/mediacanon-stdout.log"

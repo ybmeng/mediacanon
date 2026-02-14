@@ -1,0 +1,14 @@
+slug: top-thriller-shows
+name: Top Thriller Shows
+description: |
+  The highest-rated thriller TV series that keep the tension mounting episode after episode, from psychological cat-and-mouse games to geopolitical conspiracies.
+strategy: filter
+pinned: false
+languages: [en]
+regions: [global]
+filter:
+  type: show
+  genre: Thriller
+  sort: top_rated
+  min_votes: 5000
+  limit: 100

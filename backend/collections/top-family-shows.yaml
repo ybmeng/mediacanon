@@ -1,0 +1,14 @@
+slug: top-family-shows
+name: Top Family Shows
+description: |
+  The highest-rated family TV series that bring all ages together, from heartwarming adventures and educational programming to beloved animated classics.
+strategy: filter
+pinned: false
+languages: [en]
+regions: [global]
+filter:
+  type: show
+  genre: Family
+  sort: top_rated
+  min_votes: 5000
+  limit: 100

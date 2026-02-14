@@ -1,0 +1,15 @@
+slug: top-korean-dating-shows
+name: Top Korean Dating Shows
+description: |
+  The highest-rated Korean dating TV series as voted by audiences worldwide.
+  From Single's Inferno to Heart Signal, these shows blend Korean charm with romantic competition.
+strategy: filter
+pinned: false
+languages: [ko]
+regions: [global]
+filter:
+  type: show
+  genre: Korean Dating
+  sort: top_rated
+  min_votes: 5000
+  limit: 100

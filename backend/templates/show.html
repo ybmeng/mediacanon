@@ -1,0 +1,58 @@
+{{define "body"}}
+<article class="detail" data-type="show" data-id="{{.ShowID}}">
+    <header>
+        {{if .Title.ImageURL}}<img src="{{.Title.ImageURL}}" alt="" class="poster">{{end}}
+        <div>
+            <h1>{{.Title.DisplayName}}</h1>
+            {{if .Title.Year}}<p class="year">{{.Title.Year}}</p>{{end}}
+            {{if .Title.Genres}}<div class="genre-tags">{{range .Title.Genres}}<span class="genre-tag">{{.}}</span>{{end}}{{if .Title.OriginalLanguage}}<span class="genre-tag lang-tag">{{langDisplay (derefStr .Title.OriginalLanguage)}}</span>{{end}}{{if .Title.OriginCountry}}<span class="genre-tag country-tag">{{countryDisplay (derefStr .Title.OriginCountry)}}</span>{{end}}</div>{{end}}
+        </div>
+    </header>
+
+    <section class="meta">
+        <dl>
+            {{if .Title.IMDbID}}<dt>IMDb</dt><dd><a href="https://imdb.com/title/{{.Title.IMDbID}}">{{.Title.IMDbID}}</a></dd>{{end}}
+        </dl>
+    </section>
+
+    <section class="seasons">
+        <div class="seasons-header">
+            <h2>Seasons</h2>
+            {{if .Seasons}}
+            <div class="season-filter">
+                <button class="season-btn active" data-season="all">All</button>
+                {{range .Seasons}}
+                <button class="season-btn" data-season="{{.SeasonNumber}}">S{{.SeasonNumber}} ({{len .Episodes}})</button>
+                {{end}}
+            </div>
+            {{end}}
+        </div>
+        {{if .Seasons}}
+        {{range .Seasons}}
+        <div class="season" data-season-id="{{.SeasonID}}" data-season-num="{{.SeasonNumber}}">
+            <h3>Season {{.SeasonNumber}}</h3>
+            <ul class="episode-list">
+            {{range .Episodes}}
+                <li data-episode-id="{{.EpisodeID}}">
+                    {{if .ImageURL}}<img src="{{.ImageURL}}" alt="" class="ep-thumb">{{end}}
+                    <span class="ep-num">E{{.EpisodeNumber}}</span>
+                    <span class="ep-title">{{if .DisplayName}}{{.DisplayName}}{{else}}<em>Untitled</em>{{end}}</span>
+                    <span class="ep-meta">{{if .AirDate}}{{.AirDate}}{{end}}{{if .RuntimeMinutes}} · {{.RuntimeMinutes}}m{{end}}</span>
+                    {{if .Synopsis}}<span class="ep-synopsis">{{.Synopsis}}</span>{{end}}
+                </li>
+            {{end}}
+            </ul>
+        </div>
+        {{end}}
+        {{else}}
+        <p>No seasons yet.</p>
+        {{end}}
+    </section>
+
+    <section class="api-link">
+        <code>GET /api/shows/{{.ShowID}}</code>
+    </section>
+</article>
+{{end}}
+
+{{template "base" .}}

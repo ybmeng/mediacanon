@@ -1,0 +1,14 @@
+slug: top-history-shows
+name: Top History Shows
+description: |
+  The highest-rated historical TV series that bring the past to life, from period dramas and war epics to documentary series exploring pivotal moments.
+strategy: filter
+pinned: false
+languages: [en]
+regions: [global]
+filter:
+  type: show
+  genre: History
+  sort: top_rated
+  min_votes: 5000
+  limit: 100

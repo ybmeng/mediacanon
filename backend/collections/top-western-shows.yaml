@@ -1,0 +1,14 @@
+slug: top-western-shows
+name: Top Western Shows
+description: |
+  The highest-rated western TV series, from classic frontier tales and revisionist westerns to modern neo-westerns that reimagine the genre for new audiences.
+strategy: filter
+pinned: false
+languages: [en]
+regions: [global]
+filter:
+  type: show
+  genre: Western
+  sort: top_rated
+  min_votes: 5000
+  limit: 100

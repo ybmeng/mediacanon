@@ -1,0 +1,6 @@
+#!/bin/bash
+set -e
+source ~/.bashrc
+cd "$(dirname "$0")/backend"
+go build -o sync-mediacanon ./cmd/sync/
+./sync-mediacanon "$@"

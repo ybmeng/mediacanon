@@ -1,0 +1,430 @@
+{{define "body"}}
+<article class="api-docs">
+    <h1>API Documentation</h1>
+    <p class="intro">MediaCanon provides a free, open JSON API for movie and TV metadata. No API keys. No rate limits. Just data.</p>
+
+    <nav class="toc">
+        <strong>Contents:</strong>
+        <a href="#base">Base URL</a> |
+        <a href="#schemas">Data Schemas</a> |
+        <a href="#titles">Titles</a> |
+        <a href="#movies">Movies</a> |
+        <a href="#shows">Shows</a> |
+        <a href="#seasons">Seasons</a> |
+        <a href="#episodes">Episodes</a> |
+        <a href="#discover">Discover</a> |
+        <a href="#collections">Collections</a> |
+        <a href="#examples">Examples</a>
+    </nav>
+
+    <section id="base">
+        <h2>Base URL</h2>
+        <pre>https://mediacanon.org/api</pre>
+        <p>All endpoints return JSON. The API is read-only.</p>
+    </section>
+
+    <section id="schemas">
+        <h2>Data Schemas</h2>
+
+        <h3>TitleSearchResult</h3>
+        <p>Returned from search. Includes show_id or movie_id for easy navigation.</p>
+        <pre>{
+  "title_id": number,
+  "type": "movie" | "show",
+  "display_name": string,
+  "year": number | null,
+  "imdb_id": string | null,
+  "image_url": string | null,
+  "tmdb_id": number | null,
+  "show_id": number | null,        // Only present when type="show"
+  "movie_id": number | null,       // Only present when type="movie"
+  "num_votes": number | null,      // IMDb vote count
+  "average_rating": number | null, // IMDb rating (0-10)
+  "original_title": string | null,
+  "original_language": string | null, // ISO 639-1 code (e.g. "en", "ja")
+  "origin_country": string | null,   // ISO 3166-1 code (e.g. "US", "KR")
+  "release_date": string | null,   // "YYYY-MM-DD" format
+  "created_at": datetime,
+  "updated_at": datetime
+}</pre>
+
+        <h3>Title</h3>
+        <p>Base metadata for any movie or show.</p>
+        <pre>{
+  "title_id": number,
+  "type": "movie" | "show",
+  "display_name": string,
+  "year": number | null,
+  "imdb_id": string | null,
+  "image_url": string | null,
+  "tmdb_id": number | null,
+  "num_votes": number | null,
+  "average_rating": number | null,
+  "original_title": string | null,
+  "original_language": string | null,
+  "origin_country": string | null,
+  "release_date": string | null,
+  "created_at": datetime,
+  "updated_at": datetime
+}</pre>
+
+        <h3>Movie</h3>
+        <p>A movie with embedded title metadata.</p>
+        <pre>{
+  "movie_id": number,
+  "title_id": number,
+  "title": Title
+}</pre>
+
+        <h3>Show</h3>
+        <p>A TV show with embedded title metadata and seasons.</p>
+        <pre>{
+  "show_id": number,
+  "title_id": number,
+  "title": Title,
+  "seasons": Season[]
+}</pre>
+
+        <h3>Season</h3>
+        <p>A season of a TV show.</p>
+        <pre>{
+  "season_id": number,
+  "show_id": number,
+  "season_number": number,
+  "episodes": Episode[]
+}</pre>
+
+        <h3>Episode</h3>
+        <p>An episode of a TV show season, including thumbnail image, air date, runtime, and synopsis.</p>
+        <pre>{
+  "episode_id": number,
+  "season_id": number,
+  "episode_number": number,
+  "display_name": string | null,
+  "image_url": string | null,
+  "air_date": string | null,       // "YYYY-MM-DD" format
+  "runtime_minutes": number | null,
+  "synopsis": string | null
+}</pre>
+    </section>
+
+    <section id="titles">
+        <h2>Titles</h2>
+        <p>Search across all movies and shows.</p>
+
+        <h3>GET /api/titles</h3>
+        <p>Search titles with optional filters. Paginated, up to 100 results per page.</p>
+        <table>
+            <tr><th>Param</th><th>Type</th><th>Description</th></tr>
+            <tr><td><code>q</code></td><td>string</td><td>Search by display name (case-insensitive partial match)</td></tr>
+            <tr><td><code>type</code></td><td>string</td><td>Filter by type: <code>movie</code> or <code>show</code></td></tr>
+            <tr><td><code>lang</code></td><td>string</td><td>Filter by original language (ISO 639-1 code, e.g. <code>en</code>, <code>ja</code>, <code>ko</code>)</td></tr>
+            <tr><td><code>page</code></td><td>number</td><td>Page number (default: 1)</td></tr>
+            <tr><td><code>per_page</code></td><td>number</td><td>Results per page, 1&ndash;100 (default: 100)</td></tr>
+        </table>
+        <p>Results are ordered by IMDb vote count (most popular first).</p>
+        <p><strong>Response:</strong></p>
+        <pre>GET /api/titles?q=breaking&amp;type=show
+
+{
+  "titles": [
+    {
+      "title_id": 311356,
+      "type": "show",
+      "display_name": "Breaking Bad",
+      "year": 2008,
+      "imdb_id": "tt0903747",
+      "show_id": 47214,
+      "num_votes": 2200000,
+      "average_rating": 9.5,
+      "original_language": "en"
+    }
+  ],
+  "total": 12,
+  "page": 1,
+  "per_page": 100,
+  "total_pages": 1,
+  "languages": [
+    {"code": "en", "count": 10},
+    {"code": "es", "count": 2}
+  ]
+}</pre>
+        <p>The <code>languages</code> array shows the language distribution across all results matching <code>q</code> and <code>type</code> (ignoring the <code>lang</code> filter), useful for building faceted filters.</p>
+
+        <h3>GET /api/titles/:title_id</h3>
+        <p>Get a specific title by title_id.</p>
+        <p><strong>Response:</strong> <code>Title</code></p>
+    </section>
+
+    <section id="movies">
+        <h2>Movies</h2>
+
+        <h3>GET /api/movies/:movie_id</h3>
+        <p>Get a movie by movie_id, including full title metadata.</p>
+        <p><strong>Response:</strong> <code>Movie</code></p>
+        <pre>GET /api/movies/12345
+
+{
+  "movie_id": 12345,
+  "title_id": 67890,
+  "title": {
+    "title_id": 67890,
+    "type": "movie",
+    "display_name": "The Matrix",
+    "year": 1999,
+    "imdb_id": "tt0133093",
+    "image_url": null,
+    "created_at": "2026-01-26T12:00:00Z",
+    "updated_at": "2026-01-26T12:00:00Z"
+  }
+}</pre>
+    </section>
+
+    <section id="shows">
+        <h2>Shows</h2>
+
+        <h3>GET /api/shows/:show_id</h3>
+        <p>Get a show by show_id, including all seasons and episodes.</p>
+        <p><strong>Response:</strong> <code>Show</code> (with nested <code>seasons</code> and <code>episodes</code>)</p>
+        <pre>GET /api/shows/47214
+
+{
+  "show_id": 47214,
+  "title_id": 311356,
+  "title": {
+    "title_id": 311356,
+    "display_name": "Breaking Bad",
+    "year": 2008,
+    "imdb_id": "tt0903747"
+  },
+  "seasons": [
+    {
+      "season_id": 341534,
+      "show_id": 47214,
+      "season_number": 1,
+      "episodes": [
+        {
+          "episode_id": 1001, "season_id": 341534, "episode_number": 1,
+          "display_name": "Pilot",
+          "image_url": "https://image.tmdb.org/t/p/w500/...",
+          "air_date": "2008-01-20", "runtime_minutes": 59
+        },
+        {
+          "episode_id": 1002, "season_id": 341534, "episode_number": 2,
+          "display_name": "Cat's in the Bag...",
+          "image_url": "https://image.tmdb.org/t/p/w500/...",
+          "air_date": "2008-01-27", "runtime_minutes": 49
+        }
+      ]
+    },
+    {
+      "season_id": 341535,
+      "show_id": 47214,
+      "season_number": 2,
+      "episodes": [...]
+    }
+  ]
+}</pre>
+
+        <h3>GET /api/shows/:show_id/seasons</h3>
+        <p>Get all seasons for a show (without episodes).</p>
+        <p><strong>Response:</strong> <code>Season[]</code></p>
+    </section>
+
+    <section id="seasons">
+        <h2>Seasons</h2>
+
+        <h3>GET /api/seasons/:season_id</h3>
+        <p>Get a season by season_id, including all episodes.</p>
+        <p><strong>Response:</strong> <code>Season</code> (with nested <code>episodes</code>)</p>
+
+        <h3>GET /api/seasons/:season_id/episodes</h3>
+        <p>Get all episodes in a season.</p>
+        <p><strong>Response:</strong> <code>Episode[]</code></p>
+    </section>
+
+    <section id="episodes">
+        <h2>Episodes</h2>
+
+        <h3>GET /api/episodes/:episode_id</h3>
+        <p>Get a specific episode by episode_id.</p>
+        <p><strong>Response:</strong> <code>Episode</code></p>
+        <pre>GET /api/episodes/341534
+
+{
+  "episode_id": 341534,
+  "season_id": 341534,
+  "episode_number": 1,
+  "display_name": "Pilot",
+  "image_url": "https://image.tmdb.org/t/p/w400/...",
+  "air_date": "2008-01-20",
+  "runtime_minutes": 59,
+  "synopsis": "Diagnosed with terminal lung cancer, a high school..."
+}</pre>
+    </section>
+
+    <section id="discover">
+        <h2>Discover</h2>
+        <p>Browse titles with filters, sorting, and pagination. Returns only titles with poster images.</p>
+
+        <h3>GET /api/discover/carousels</h3>
+        <p>Get the carousel-based discover feed: interleaved show/movie collections with preview titles (up to 30 each). Paginated by number of carousels.</p>
+        <table>
+            <tr><th>Param</th><th>Type</th><th>Description</th></tr>
+            <tr><td><code>page</code></td><td>number</td><td>Page number (default: 1)</td></tr>
+            <tr><td><code>per_page</code></td><td>number</td><td>Carousels per page, 1&ndash;50 (default: 10)</td></tr>
+        </table>
+        <p><strong>Response:</strong></p>
+        <pre>GET /api/discover/carousels?page=1&amp;per_page=2
+
+{
+  "carousels": [
+    {
+      "name": "Top Drama Shows",
+      "slug": "top-drama-shows",
+      "description": "Highest rated drama series",
+      "collection_id": 5,
+      "engagement_count": 42.0,
+      "total_count": 1250,
+      "titles": [...]
+    },
+    {
+      "name": "Best Action Movies",
+      "slug": "best-action-movies",
+      "collection_id": 8,
+      "engagement_count": 38.0,
+      "total_count": 890,
+      "titles": [...]
+    }
+  ],
+  "total": 24,
+  "page": 1,
+  "per_page": 2
+}</pre>
+        <p>Each carousel's <code>slug</code> can be used with <code>GET /api/collections/:slug</code> to fetch all titles for that collection.</p>
+
+        <h3>GET /api/discover</h3>
+        <p>Discover titles with optional filters. Paginated, up to 100 results per page.</p>
+        <table>
+            <tr><th>Param</th><th>Type</th><th>Description</th></tr>
+            <tr><td><code>type</code></td><td>string</td><td>Filter by type: <code>movie</code> or <code>show</code></td></tr>
+            <tr><td><code>genre</code></td><td>string</td><td>Filter by genre name (e.g. <code>Action</code>, <code>Horror</code>, <code>Sci-Fi</code>)</td></tr>
+            <tr><td><code>country</code></td><td>string</td><td>Filter by origin country (ISO 3166-1 code, e.g. <code>US</code>, <code>KR</code>, <code>JP</code>)</td></tr>
+            <tr><td><code>lang</code></td><td>string</td><td>Filter by original language (ISO 639-1 code, e.g. <code>en</code>, <code>ja</code>)</td></tr>
+            <tr><td><code>sort</code></td><td>string</td><td>Sort order: <code>most_rated</code>, <code>top_rated</code>, <code>newest</code>, <code>trending</code>, <code>popular</code>, <code>hidden_gems</code>, <code>a-z</code> (default: most rated by IMDb vote count)</td></tr>
+            <tr><td><code>year_min</code></td><td>number</td><td>Minimum year filter</td></tr>
+            <tr><td><code>rating_min</code></td><td>number</td><td>Minimum average rating filter</td></tr>
+            <tr><td><code>min_votes</code></td><td>number</td><td>Minimum IMDb vote count filter</td></tr>
+            <tr><td><code>page</code></td><td>number</td><td>Page number (default: 1)</td></tr>
+            <tr><td><code>limit</code></td><td>number</td><td>Results per page, 1&ndash;100 (default: 100)</td></tr>
+        </table>
+        <p><strong>Response:</strong></p>
+        <pre>GET /api/discover?country=KR&amp;type=movie&amp;sort=top_rated&amp;page=1
+
+{
+  "titles": [
+    {
+      "title_id": 484052,
+      "type": "movie",
+      "display_name": "Parasite",
+      "year": 2019,
+      "image_url": "https://image.tmdb.org/t/p/w500/...",
+      "movie_id": 76841,
+      "average_rating": 8.5,
+      "num_votes": 940000,
+      "tmdb_popularity": 19.4,
+      "genres": ["Comedy", "Drama", "Thriller"]
+    }
+  ],
+  "total": 156,
+  "page": 1,
+  "per_page": 100
+}</pre>
+    </section>
+
+    <section id="collections">
+        <h2>Collections</h2>
+        <p>Curated lists of titles, designed for LLM-generated discovery.</p>
+
+        <h3>GET /api/collections</h3>
+        <p>List all active collections, ordered by pinned status and click popularity.</p>
+        <p><strong>Response:</strong> <code>Collection[]</code></p>
+        <pre>GET /api/collections
+
+[
+  {
+    "id": 1,
+    "name": "Classic Anime",
+    "slug": "classic-anime",
+    "description": "Beloved anime series and films",
+    "pinned": true,
+    "active": true,
+    "engagement_count": 42.0
+  }
+]</pre>
+
+        <h3>GET /api/collections/:slug</h3>
+        <p>Get a collection by slug or ID, including its matched titles.</p>
+        <p><strong>Response:</strong></p>
+        <pre>GET /api/collections/classic-anime
+
+{
+  "collection": {
+    "id": 1,
+    "name": "Classic Anime",
+    "slug": "classic-anime",
+    "description": "Beloved anime series and films",
+    "pinned": true,
+    "active": true,
+    "engagement_count": 42.0
+  },
+  "titles": [...],
+  "total": 25
+}</pre>
+    </section>
+
+    <section id="examples">
+        <h2>Usage Examples</h2>
+
+        <h3>cURL</h3>
+        <pre>curl https://mediacanon.org/api/titles?q=matrix
+curl https://mediacanon.org/api/titles?lang=ja&amp;page=2
+curl https://mediacanon.org/api/shows/47214
+curl https://mediacanon.org/api/movies/12345
+curl https://mediacanon.org/api/discover?genre=Horror&amp;sort=top_rated
+curl https://mediacanon.org/api/discover?country=JP&amp;type=movie&amp;page=2
+curl https://mediacanon.org/api/collections
+curl https://mediacanon.org/api/collections/classic-anime</pre>
+
+        <h3>JavaScript</h3>
+        <pre>const res = await fetch('https://mediacanon.org/api/titles?q=breaking');
+const data = await res.json();
+console.log(data.titles);   // TitleSearchResult[]
+console.log(data.total);    // total matching results
+console.log(data.page);     // current page</pre>
+
+        <h3>Python</h3>
+        <pre>import requests
+data = requests.get('https://mediacanon.org/api/titles?q=breaking').json()
+for title in data['titles']:
+    print(title['display_name'], title.get('average_rating'))</pre>
+    </section>
+
+    <section>
+        <h2>Data Stats</h2>
+        <ul>
+            <li><strong>~892,000</strong> movies</li>
+            <li><strong>~362,000</strong> TV shows</li>
+            <li><strong>~7.5 million</strong> episodes</li>
+        </ul>
+        <p>Data sourced from IMDb datasets. Episode images, air dates, runtimes, and synopses from TMDB.</p>
+    </section>
+
+    <section>
+        <h2>Rate Limits</h2>
+        <p>None. Be reasonable.</p>
+    </section>
+</article>
+{{end}}
+
+{{template "base" .}}

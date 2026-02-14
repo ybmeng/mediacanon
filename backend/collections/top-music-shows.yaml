@@ -1,0 +1,14 @@
+slug: top-music-shows
+name: Top Music Shows
+description: |
+  The highest-rated music TV series, from competition shows and concert films to music documentaries and fictional stories set in the world of music.
+strategy: filter
+pinned: false
+languages: [en]
+regions: [global]
+filter:
+  type: show
+  genre: Music
+  sort: top_rated
+  min_votes: 5000
+  limit: 100

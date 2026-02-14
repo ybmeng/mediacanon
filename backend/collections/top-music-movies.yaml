@@ -1,0 +1,15 @@
+slug: top-music-movies
+name: Top Music Movies
+description: |
+  The best music-driven films, celebrating the power of song, rhythm, and musical storytelling.
+  These movies range from concert documentaries and musician biopics to original musicals, capturing the transformative energy of music on screen.
+strategy: filter
+pinned: false
+languages: [en]
+regions: [global]
+filter:
+  type: movie
+  genre: Music
+  sort: top_rated
+  min_votes: 5000
+  limit: 100

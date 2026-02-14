@@ -1,0 +1,14 @@
+slug: top-war-shows
+name: Top War Shows
+description: |
+  The highest-rated war TV series that chronicle the brutality and heroism of armed conflict, from WWII epics and Vietnam-era dramas to modern combat docuseries.
+strategy: filter
+pinned: false
+languages: [en]
+regions: [global]
+filter:
+  type: show
+  genre: War
+  sort: top_rated
+  min_votes: 5000
+  limit: 100

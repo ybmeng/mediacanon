@@ -1,0 +1,14 @@
+slug: top-mystery-shows
+name: Top Mystery Shows
+description: |
+  The highest-rated mystery TV series that keep viewers guessing, from classic detective procedurals and locked-room puzzles to serialized whodunits with season-long arcs.
+strategy: filter
+pinned: false
+languages: [en]
+regions: [global]
+filter:
+  type: show
+  genre: Mystery
+  sort: top_rated
+  min_votes: 5000
+  limit: 100

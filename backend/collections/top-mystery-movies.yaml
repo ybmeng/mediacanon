@@ -1,0 +1,15 @@
+slug: top-mystery-movies
+name: Top Mystery Movies
+description: |
+  The greatest mystery films that keep audiences guessing until the very end.
+  These movies weave intricate puzzles, unreliable narrators, and shocking revelations into stories that reward careful attention and repeated viewings.
+strategy: filter
+pinned: false
+languages: [en]
+regions: [global]
+filter:
+  type: movie
+  genre: Mystery
+  sort: top_rated
+  min_votes: 5000
+  limit: 100

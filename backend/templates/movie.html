@@ -1,0 +1,24 @@
+{{define "body"}}
+<article class="detail" data-type="movie" data-id="{{.MovieID}}">
+    <header>
+        {{if .Title.ImageURL}}<img src="{{.Title.ImageURL}}" alt="" class="poster">{{end}}
+        <div>
+            <h1>{{.Title.DisplayName}}</h1>
+            {{if .Title.Year}}<p class="year">{{.Title.Year}}</p>{{end}}
+            {{if .Title.Genres}}<div class="genre-tags">{{range .Title.Genres}}<span class="genre-tag">{{.}}</span>{{end}}{{if .Title.OriginalLanguage}}<span class="genre-tag lang-tag">{{langDisplay (derefStr .Title.OriginalLanguage)}}</span>{{end}}{{if .Title.OriginCountry}}<span class="genre-tag country-tag">{{countryDisplay (derefStr .Title.OriginCountry)}}</span>{{end}}</div>{{end}}
+        </div>
+    </header>
+
+    <section class="meta">
+        <dl>
+            {{if .Title.IMDbID}}<dt>IMDb</dt><dd><a href="https://imdb.com/title/{{.Title.IMDbID}}">{{.Title.IMDbID}}</a></dd>{{end}}
+        </dl>
+    </section>
+
+    <section class="api-link">
+        <code>GET /api/movies/{{.MovieID}}</code>
+    </section>
+</article>
+{{end}}
+
+{{template "base" .}}

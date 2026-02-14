@@ -1,0 +1,14 @@
+slug: top-sci-fi-shows
+name: Top Sci-Fi Shows
+description: |
+  The highest-rated science fiction TV series that imagine futures, alternate realities, and technologies that reshape what it means to be human.
+strategy: filter
+pinned: false
+languages: [en]
+regions: [global]
+filter:
+  type: show
+  genre: Sci-Fi
+  sort: top_rated
+  min_votes: 5000
+  limit: 100

@@ -1,0 +1,15 @@
+slug: top-action-movies
+name: Top Action Movies
+description: |
+  The highest-rated action movies as voted by audiences worldwide.
+  From explosive blockbusters to tightly choreographed martial arts masterpieces, these films deliver relentless thrills and unforgettable set pieces.
+strategy: filter
+pinned: false
+languages: [en]
+regions: [global]
+filter:
+  type: movie
+  genre: Action
+  sort: top_rated
+  min_votes: 5000
+  limit: 100

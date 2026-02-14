@@ -1,0 +1,14 @@
+slug: top-sport-shows
+name: Top Sport Shows
+description: |
+  The highest-rated sports TV series that capture the drama of competition, from docuseries following real athletes to fictional stories about the heart of sport.
+strategy: filter
+pinned: false
+languages: [en]
+regions: [global]
+filter:
+  type: show
+  genre: Sport
+  sort: top_rated
+  min_votes: 5000
+  limit: 100

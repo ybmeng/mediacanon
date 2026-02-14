@@ -1,0 +1,15 @@
+slug: top-sci-fi-movies
+name: Top Sci-Fi Movies
+description: |
+  The top-rated science fiction films that push the frontiers of imagination and technology.
+  These movies explore futuristic worlds, artificial intelligence, space travel, and the philosophical questions that arise when humanity confronts the unknown.
+strategy: filter
+pinned: false
+languages: [en]
+regions: [global]
+filter:
+  type: movie
+  genre: Sci-Fi
+  sort: top_rated
+  min_votes: 5000
+  limit: 100

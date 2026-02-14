@@ -1,0 +1,15 @@
+slug: top-romance-movies
+name: Top Romance Movies
+description: |
+  The most cherished romance films, capturing love in all its complexity and beauty.
+  From sweeping period romances to modern love stories, these movies portray the joy, heartbreak, and transformative power of human connection.
+strategy: filter
+pinned: false
+languages: [en]
+regions: [global]
+filter:
+  type: movie
+  genre: Romance
+  sort: top_rated
+  min_votes: 5000
+  limit: 100

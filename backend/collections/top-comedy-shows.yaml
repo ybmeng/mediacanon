@@ -1,0 +1,14 @@
+slug: top-comedy-shows
+name: Top Comedy Shows
+description: |
+  The highest-rated comedy TV series, from iconic sitcoms and sketch shows to sharp satires and absurdist comedies that define generations of humor.
+strategy: filter
+pinned: false
+languages: [en]
+regions: [global]
+filter:
+  type: show
+  genre: Comedy
+  sort: top_rated
+  min_votes: 5000
+  limit: 100

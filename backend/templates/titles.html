@@ -1,0 +1,60 @@
+{{define "body"}}
+<h1>Titles</h1>
+
+<form action="/titles" method="get" class="filters">
+    <input type="text" name="q" value="{{.Query}}" placeholder="Search...">
+    <select name="type">
+        <option value="">All types</option>
+        <option value="movie" {{if eq .Type "movie"}}selected{{end}}>Movies</option>
+        <option value="show" {{if eq .Type "show"}}selected{{end}}>Shows</option>
+    </select>
+    <button type="submit">Filter</button>
+</form>
+
+{{if .LangCounts}}
+<div class="lang-filters">
+    <a href="/titles?q={{.Query}}{{if .Type}}&type={{.Type}}{{end}}" class="lang-chip{{if not .Lang}} active{{end}}">All</a>
+    {{range .LangCounts}}
+    <a href="/titles?q={{$.Query}}{{if $.Type}}&type={{$.Type}}{{end}}&lang={{.Code}}" class="lang-chip{{if eq $.Lang .Code}} active{{end}}">{{.Display}} ({{.Count}})</a>
+    {{end}}
+</div>
+{{end}}
+
+{{if .Titles}}
+<ul class="title-list">
+{{range .Titles}}
+    <li>
+        {{if .ImageURL}}<img src="{{.ImageURL}}" alt="" class="thumb">{{end}}
+        <div class="info">
+            {{if eq .Type "movie"}}
+            <a href="/movies/{{.MovieID}}?source=search">{{.DisplayName}}</a>
+            {{else}}
+            <a href="/shows/{{.ShowID}}?source=search">{{.DisplayName}}</a>
+            {{end}}
+            {{if .Year}}<span class="year">({{.Year}})</span>{{end}}
+            <span class="chip chip-{{.Type}}">{{.Type}}</span>
+            {{if .OriginalLanguage}}<span class="chip chip-lang">{{langDisplay .OriginalLanguage}}</span>{{end}}
+            {{if .AverageRating}}<span class="chip chip-rating">{{fmtRating .AverageRating .NumVotes}}</span>{{end}}
+        </div>
+    </li>
+{{end}}
+</ul>
+
+{{if gt .TotalPages 1}}
+<div class="pagination">
+    {{if gt .Page 1}}
+    <a href="/titles?q={{.Query}}{{if .Type}}&type={{.Type}}{{end}}{{if .Lang}}&lang={{.Lang}}{{end}}&page={{subtract .Page 1}}">&larr; Previous</a>
+    {{end}}
+    <span class="page-info">Page {{.Page}} of {{.TotalPages}} ({{.Total}} results)</span>
+    {{if lt .Page .TotalPages}}
+    <a href="/titles?q={{.Query}}{{if .Type}}&type={{.Type}}{{end}}{{if .Lang}}&lang={{.Lang}}{{end}}&page={{add .Page 1}}">Next &rarr;</a>
+    {{end}}
+</div>
+{{end}}
+
+{{else}}
+<p>No titles found. <a href="/add">Add one</a>.</p>
+{{end}}
+{{end}}
+
+{{template "base" .}}

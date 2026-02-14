@@ -1,0 +1,27 @@
+{{define "body"}}
+<section class="hero">
+    <h1>MediaCanon</h1>
+    <p class="tagline">Open TV & Movie Metadata Database</p>
+
+    <div class="stats">
+        <a href="/titles?type=movie" class="stat">
+            <span class="num">{{.MovieCount}}</span>
+            <span class="label">Movies</span>
+        </a>
+        <a href="/titles?type=show" class="stat">
+            <span class="num">{{.ShowCount}}</span>
+            <span class="label">Shows</span>
+        </a>
+    </div>
+</section>
+
+<section class="api-example">
+    <h2>API</h2>
+    <pre><code>GET /api/titles?q=severance
+GET /api/movies/1
+GET /api/shows/1
+POST /api/movies {"display_name": "Dune", "year": 2021}</code></pre>
+</section>
+{{end}}
+
+{{template "base" .}}

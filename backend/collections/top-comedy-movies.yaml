@@ -1,0 +1,15 @@
+slug: top-comedy-movies
+name: Top Comedy Movies
+description: |
+  The funniest and most beloved comedy films according to audience ratings.
+  From sharp satire and witty dialogue to slapstick and absurdist humor, these movies have earned their place as the genre's finest through genuine laughs and clever writing.
+strategy: filter
+pinned: false
+languages: [en]
+regions: [global]
+filter:
+  type: movie
+  genre: Comedy
+  sort: top_rated
+  min_votes: 5000
+  limit: 100

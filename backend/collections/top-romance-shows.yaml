@@ -1,0 +1,14 @@
+slug: top-romance-shows
+name: Top Romance Shows
+description: |
+  The highest-rated romance TV series that explore love in all its forms, from sweeping period romances and romantic comedies to slow-burn dramas and K-drama love stories.
+strategy: filter
+pinned: false
+languages: [en]
+regions: [global]
+filter:
+  type: show
+  genre: Romance
+  sort: top_rated
+  min_votes: 5000
+  limit: 100

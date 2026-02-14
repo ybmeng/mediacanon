@@ -1,0 +1,605 @@
+# MediaCanon Custom Genre Review
+# Generated: 2026-02-10 | 200 titles | Custom genres: Cooking, Dating, Reality
+# Edit GENRES lines. Use "none" or leave empty to skip.
+# Import: ./sync-mediacanon -genres-import genres-review.txt
+
+[804213] Naked and Afraid (2013) | show | 6K votes | 6.6 | /US | Adventure, Game-Show, Horror
+GENRES:
+
+[1058799] MTV Roadies (2003) | show | 6K votes | 4.6 | /IN | Adventure, Reality-TV
+GENRES:
+
+[338032] Next in Fashion (2020) | show | 6K votes | 7.3 | /US | Reality-TV
+GENRES:
+
+[1249198] RuPaul's Drag Race UK (2019) | show | 6K votes | 8.4 | /GB | Game-Show, Reality-TV
+GENRES:
+
+[682750] Hotel Hell (2012) | show | 5K votes | 7.1 | /US | Reality-TV
+GENRES:
+
+[129365] Family Feud (1999) | show | 5K votes | 6.7 | /US | Comedy, Game-Show
+GENRES:
+
+[251913] Pimp My Ride (2004) | show | 5K votes | 5.7 | /US | Reality-TV
+GENRES:
+
+[266201] The Biggest Loser (2004) | show | 5K votes | 5.4 | /US | Game-Show, Reality-TV
+GENRES:
+
+[660133] IN THE SOOP : Friendcation (2022) | show | 5K votes | 8.4 | /KR | Reality-TV
+GENRES:
+
+[1047126] Love Island (2015) | show | 5K votes | 5.3 | /GB | Game-Show, Reality-TV, Romance
+GENRES:
+
+[579641] Hardcore Pawn (2009) | show | 5K votes | 4.9 | /US | Reality-TV
+GENRES:
+
+[613613] Ink Master (2012) | show | 5K votes | 7.4 | /US | Game-Show, Reality-TV
+GENRES:
+
+[736604] Outlast (2023) | show | 5K votes | 5.4 | /US | Adventure, Game-Show, Reality-TV
+GENRES:
+
+[713342] Drag Race Brasil (2023) | show | 5K votes | 8.0 | /BR | Game-Show, Reality-TV
+GENRES:
+
+[1174084] The Final Table (2018) | show | 5K votes | 7.6 | /US | Game-Show, Reality-TV
+GENRES:
+
+[1222278] O Ses Türkiye (2011) | show | 5K votes | 4.7 | /TR | Game-Show, Music, Reality-TV
+GENRES:
+
+[329744] Diners, Drive-ins and Dives (2006) | show | 5K votes | 7.3 | /US | Reality-TV
+GENRES:
+
+[263688] The X Factor UK (2004) | show | 5K votes | 4.4 | /GB | Documentary, Game-Show, Music
+GENRES:
+
+[128667] The Challenge (1998) | show | 5K votes | 8.1 | /US | Action, Adventure, Game-Show
+GENRES:
+
+[1043137] Forged in Fire (2015) | show | 5K votes | 8.2 | /US | Game-Show, Reality-TV
+GENRES:
+
+[555023] Unstoppable with NBK (2021) | show | 5K votes | 8.9 | /IN | Reality-TV, Talk-Show
+GENRES:
+
+[699477] Vanderpump Rules (2013) | show | 5K votes | 6.3 | /US | Reality-TV
+GENRES:
+
+[573250] Joker (2021) | show | 5K votes | 6.1 | /IR | Comedy, Reality-TV
+GENRES:
+
+[205790] The Osbournes (2002) | show | 5K votes | 6.0 | /US | Comedy, Music, Reality-TV
+GENRES:
+
+[553478] Teen Mom OG (2009) | show | 5K votes | 3.7 | /US | Documentary, Drama, Reality-TV
+GENRES:
+
+[468403] Chopped (2007) | show | 5K votes | 7.4 | /US | Game-Show, Reality-TV
+GENRES:
+
+[399149] 100 Humans: Life's Questions. Answered. (2020) | show | 5K votes | 5.8 | /US | Reality-TV
+GENRES:
+
+[438487] Bigg Boss (2006) | show | 5K votes | 3.6 | /IN | Reality-TV
+GENRES:
+
+[606817] Is It Cake? (2022) | show | 5K votes | 6.1 | /US | Animation, Comedy, Game-Show
+GENRES:
+
+[869211] Culinary Class Wars (2024) | show | 5K votes | 8.5 | /KR | Game-Show, Reality-TV
+GENRES:
+
+[561521] American Ninja Warrior (2009) | show | 5K votes | 6.8 | /AU | Action, Game-Show, Reality-TV
+GENRES:
+
+[335655] Britain's Got Talent (2007) | show | 5K votes | 5.8 | /GB | Documentary, Family, Game-Show
+GENRES:
+
+[263570] The First 48 (2004) | show | 5K votes | 8.2 | /US | Crime, Mystery, Reality-TV
+GENRES:
+
+[52407] The Price is Right (1972) | show | 5K votes | 7.5 | /US | Comedy, Family, Game-Show
+GENRES:
+
+[548707] I Am Georgina (2022) | show | 5K votes | 4.1 | /ES | Reality-TV
+GENRES:
+
+[173010] Kaun Banega Crorepati? (2000) | show | 5K votes | 8.1 | /IN | Game-Show
+GENRES:
+
+[292408] The Real Housewives of Orange County (2006) | show | 5K votes | 4.5 | /US | Reality-TV
+GENRES:
+
+[427086] The Real Housewives of Atlanta (2008) | show | 5K votes | 4.8 | /US | Reality-TV
+GENRES:
+
+[1024134] Expedition Unknown (2015) | show | 5K votes | 8.2 | /US | Adventure, Mystery, Reality-TV
+GENRES:
+
+[291143] Deal or No Deal (2005) | show | 5K votes | 5.1 | /US | Family, Game-Show
+GENRES:
+
+[812940] Khawatir (2005) | show | 5K votes | 9.2 | /SA | Documentary, Family, Reality-TV
+GENRES:
+
+[297940] Rob & Big (2006) | show | 4K votes | 7.6 | /US | Comedy, Reality-TV, Sport
+GENRES:
+
+[601613] Penn & Teller: Fool Us (2011) | show | 4K votes | 8.0 | /GB | Comedy, Game-Show, Mystery
+GENRES:
+
+[754126] The Tribe (2024) | show | 4K votes | 7.2 | /IN | Documentary, Reality-TV
+GENRES:
+
+[1089975] Below Deck Mediterranean (2016) | show | 4K votes | 7.6 | /US | Reality-TV
+GENRES:
+
+[83634] The Real World (1991) | show | 4K votes | 5.3 | /US | Drama, Reality-TV
+GENRES:
+
+[402533] The Real Housewives of New York City (2008) | show | 4K votes | 5.1 | /US | Reality-TV
+GENRES:
+
+[491972] The Real Housewives of New Jersey (2009) | show | 4K votes | 4.5 | /US | Reality-TV
+GENRES:
+
+[613275] Bar Rescue (2011) | show | 4K votes | 7.4 | /US | Reality-TV
+GENRES:
+
+[572635] Shark Tank India (2021) | show | 4K votes | 8.7 | /IN | Reality-TV
+GENRES:
+
+[207906] Legends of the Hidden Temple (1993) | show | 4K votes | 8.0 | /US | Adventure, Family, Game-Show
+GENRES:
+
+[1253434] Blown Away (2019) | show | 4K votes | 7.2 | /CA | Reality-TV
+GENRES:
+
+[501732] MasterChef Australia (2009) | show | 4K votes | 8.2 | /AU | Game-Show, Reality-TV
+GENRES:
+
+[569914] Single's Inferno (2021) | show | 4K votes | 7.3 | /KR | Reality-TV
+GENRES:
+
+[281660] The Girls Next Door (2005) | show | 4K votes | 5.6 | /US | Comedy, Reality-TV, Romance
+GENRES:
+
+[265175] Laguna Beach: The Real Orange County (2004) | show | 4K votes | 5.0 | /US | Drama, Reality-TV
+GENRES:
+
+[733246] Jinny's Kitchen (2023) | show | 4K votes | 8.8 | /KR | Reality-TV
+GENRES:
+
+[484414] LOL: Last One Laughing Germany (2021) | show | 4K votes | 7.5 | /DE | Comedy, Reality-TV
+GENRES:
+
+[236271] American Chopper: The Series (2002) | show | 4K votes | 6.1 | /US | Reality-TV, Sport
+GENRES:
+
+[1025788] Lip Sync Battle (2015) | show | 4K votes | 7.2 | /US | Game-Show, Music
+GENRES:
+
+[1193468] Tidying Up with Marie Kondo (2019) | show | 4K votes | 6.6 | /US | Reality-TV
+GENRES:
+
+[872473] India's Got Latent (2024) | show | 4K votes | 9.1 | /IN | Comedy, Game-Show, Reality-TV
+GENRES:
+
+[473261] Toddlers & Tiaras (2009) | show | 4K votes | 1.8 | /US | Reality-TV
+GENRES:
+
+[670287] Running Man (2010) | show | 4K votes | 9.1 | /KR | Comedy, Game-Show, Reality-TV
+GENRES:
+
+[56344] Wheel of Fortune (1983) | show | 4K votes | 6.7 | /US | Family, Game-Show
+GENRES:
+
+[351759] Ice Road Truckers (2007) | show | 4K votes | 6.2 | /CA | Adventure, Documentary, Reality-TV
+GENRES:
+
+[505228] Undercover Boss (2010) | show | 4K votes | 5.8 | /US | Reality-TV
+GENRES:
+
+[1204017] Magic for Humans (2018) | show | 4K votes | 7.2 | /US | Comedy, Reality-TV
+GENRES:
+
+[526885] Hoarders (2009) | show | 4K votes | 6.5 | /US | Documentary, Reality-TV
+GENRES:
+
+[561629] RuPaul's Drag Race: Untucked! (2009) | show | 4K votes | 7.7 | /US | Reality-TV
+GENRES:
+
+[460884] Judy Justice (2021) | show | 4K votes | 7.1 | /US | Crime, Drama, Reality-TV
+GENRES:
+
+[473822] Bling Empire (2021) | show | 4K votes | 5.8 | /US | Reality-TV
+GENRES:
+
+[222588] I'm a Celebrity, Get Me Out of Here! (2002) | show | 4K votes | 5.9 | /GB | Adventure, Game-Show, Reality-TV
+GENRES:
+
+[262528] Grand Designs (1999) | show | 4K votes | 8.5 | /GB | Documentary, Reality-TV
+GENRES:
+
+[274891] The Apprentice UK (2005) | show | 4K votes | 7.1 | /GB | Game-Show, Reality-TV
+GENRES:
+
+[645457] Brain Games (2011) | show | 4K votes | 8.2 | /US | Comedy, Documentary, Game-Show
+GENRES:
+
+[1227145] Haunted (2018) | show | 4K votes | 4.7 | /US | Horror, Reality-TV
+GENRES:
+
+[1187912] The Titan Games (2019) | show | 4K votes | 7.1 | /US | Game-Show, Reality-TV
+GENRES:
+
+[1244005] Lego Masters (2020) | show | 4K votes | 7.5 | /US | Game-Show
+GENRES:
+
+[605492] Property Brothers (2011) | show | 4K votes | 7.1 | /CA | Reality-TV
+GENRES:
+
+[1038711] Fixer Upper (2013) | show | 4K votes | 8.1 | /US | Reality-TV
+GENRES:
+
+[438249] Deadliest Warrior (2009) | show | 4K votes | 7.5 | /US | Action, Game-Show, History
+GENRES:
+
+[1240372] Rust Valley Restorers (2018) | show | 4K votes | 7.7 | /CA | Documentary, Reality-TV
+GENRES:
+
+[273216] Hard Knocks: Training Camp (2001) | show | 4K votes | 8.3 | /US | Documentary, Reality-TV, Sport
+GENRES:
+
+[375385] Jon & Kate Plus 8 (2007) | show | 4K votes | 4.5 | /US | Documentary, Reality-TV
+GENRES:
+
+[1183920] Run BTS! (2015) | show | 4K votes | 9.2 | /KR | Game-Show
+GENRES:
+
+[524710] Kourtney & Kim Take Miami (2009) | show | 4K votes | 3.2 | /US | Reality-TV
+GENRES:
+
+[1084445] 60 Days In (2016) | show | 4K votes | 7.6 | /US | Crime, Documentary, Reality-TV
+GENRES:
+
+[453386] In the SOOP BTS Ver. (2020) | show | 4K votes | 9.2 | /KR | Reality-TV
+GENRES:
+
+[297844] Ca$h Cab (2005) | show | 4K votes | 7.1 | /US | Game-Show, History
+GENRES:
+
+[854707] Million Dollar Secret (2025) | show | 4K votes | 7.6 | /US | Game-Show, Reality-TV
+GENRES:
+
+[388214] The Goop Lab (2020) | show | 4K votes | 2.7 | /US | Documentary, Reality-TV
+GENRES:
+
+[579265] Dual Survival (2010) | show | 4K votes | 7.4 | /US | Adventure, Game-Show, Reality-TV
+GENRES:
+
+[505767] Cake Boss (2009) | show | 4K votes | 6.6 | /US | Family, Reality-TV
+GENRES:
+
+[77589] American Gladiators (1989) | show | 3K votes | 6.6 | /US | Action, Game-Show, Sport
+GENRES:
+
+[635579] The Dead Files (2011) | show | 3K votes | 6.7 | /US | Fantasy, Horror, Reality-TV
+GENRES:
+
+[377076] We're Here (2020) | show | 3K votes | 8.2 | /US | Reality-TV
+GENRES:
+
+[1246243] Glow Up: Britain's Next Make-Up Star (2019) | show | 3K votes | 7.0 | /GB | Game-Show, Reality-TV
+GENRES:
+
+[559587] The Reluctant Traveler (2023) | show | 3K votes | 7.5 | /GB | Documentary, Reality-TV
+GENRES:
+
+[471336] Drag Race España (2021) | show | 3K votes | 8.5 | /ES | Game-Show, Reality-TV
+GENRES:
+
+[381206] Canada's Drag Race (2020) | show | 3K votes | 7.4 | /CA | Game-Show, Reality-TV
+GENRES:
+
+[1217227] Love Island USA (2019) | show | 3K votes | 5.3 | /US | Game-Show, Reality-TV
+GENRES:
+
+[591402] Auction Hunters (2010) | show | 3K votes | 5.9 | /US | Reality-TV
+GENRES:
+
+[314901] Destination Truth (2007) | show | 3K votes | 7.6 | /US | Reality-TV
+GENRES:
+
+[272845] The Ultimate Fighter (2005) | show | 3K votes | 7.8 | /US | Action, Reality-TV, Sport
+GENRES:
+
+[342955] Prank Encounters (2019) | show | 3K votes | 5.3 | /US | Comedy, Horror, Reality-TV
+GENRES:
+
+[531644] Pointless (2009) | show | 3K votes | 7.2 | /GB | Game-Show
+GENRES:
+
+[588180] Sister Wives (2010) | show | 3K votes | 4.6 | /US | Reality-TV
+GENRES:
+
+[918892] Physical: Asia (2025) | show | 3K votes | 8.1 | /KR | Game-Show, Reality-TV
+GENRES:
+
+[902613] Are You the One? (2014) | show | 3K votes | 6.6 | /US | Game-Show, Reality-TV, Romance
+GENRES:
+
+[809140] MasterChef Junior (2013) | show | 3K votes | 6.8 | /US | Family, Game-Show, Reality-TV
+GENRES:
+
+[755752] Gogglebox (2013) | show | 3K votes | 7.4 | /GB | Documentary, Reality-TV
+GENRES:
+
+[538314] Hype House (2022) | show | 3K votes | 2.0 | /US | Reality-TV
+GENRES:
+
+[272824] My Super Sweet 16 (2005) | show | 3K votes | 1.9 | /US | Documentary, Reality-TV
+GENRES:
+
+[151738] Who Wants to Be a Millionaire (1999) | show | 3K votes | 6.3 | /US | Game-Show
+GENRES:
+
+[609152] The Ultimatum: Marry or Move On (2022) | show | 3K votes | 5.5 | /US | Reality-TV
+GENRES:
+
+[594295] American Restoration (2010) | show | 3K votes | 6.6 | /US | Reality-TV
+GENRES:
+
+[1171603] Men in Kilts: A Roadtrip with Sam and Graham (2021) | show | 3K votes | 8.4 | /US | Comedy, Documentary, Reality-TV
+GENRES:
+
+[698825] Counting Cars (2012) | show | 3K votes | 7.0 | /US | Documentary, Reality-TV
+GENRES:
+
+[528010] Hannity (2009) | show | 3K votes | 3.5 | /US | News, Reality-TV, Talk-Show
+GENRES:
+
+[822056] The Secret Lives of Mormon Wives (2024) | show | 3K votes | 5.5 | /US | Reality-TV
+GENRES:
+
+[899645] 90 Day Fiancé (2014) | show | 3K votes | 6.5 | /US | Reality-TV, Romance
+GENRES:
+
+[177134] Big Brother (2000) | show | 3K votes | 4.3 | /GB | Documentary, Game-Show, Reality-TV
+GENRES:
+
+[816350] Oscar (2024) | show | 3K votes | 7.2 |  | Comedy, Game-Show, Reality-TV
+GENRES:
+
+[679877] 28 Days Haunted (2022) | show | 3K votes | 3.6 | /US | Horror, Reality-TV
+GENRES:
+
+[602462] The Glee Project (2011) | show | 3K votes | 6.6 | /US | Game-Show, Reality-TV
+GENRES:
+
+[756900] Siren: Survive the Island (2023) | show | 3K votes | 7.9 | /KR | Game-Show, Reality-TV
+GENRES:
+
+[312262] Bad Girls Club (2006) | show | 3K votes | 5.1 | /US | Comedy, Drama, Reality-TV
+GENRES:
+
+[1220595] Hyperdrive (2019) | show | 3K votes | 8.0 | /US | Reality-TV
+GENRES:
+
+[1183940] BTS: Bon Voyage (2016) | show | 3K votes | 9.2 | /KR | Reality-TV
+GENRES:
+
+[940846] Alaskan Bush People (2014) | show | 3K votes | 6.1 | /US | Reality-TV
+GENRES:
+
+[322398] You vs. Wild (2019) | show | 3K votes | 6.6 | /US | Adventure, Reality-TV
+GENRES:
+
+[866686] RuPaul's Drag Race Global All Stars (2024) | show | 3K votes | 4.1 | /US | Game-Show, Reality-TV
+GENRES:
+
+[85878] Shooting Stars (1993) | show | 3K votes | 7.7 | /GB | Comedy, Game-Show
+GENRES:
+
+[699908] Fast N' Loud (2012) | show | 3K votes | 7.4 | /US | Reality-TV
+GENRES:
+
+[263560] Dog Whisperer with Cesar Millan (2004) | show | 3K votes | 7.9 | /US | Family, Reality-TV
+GENRES:
+
+[465062] Rob Dyrdek's Fantasy Factory (2009) | show | 3K votes | 7.6 | /US | Comedy, Reality-TV
+GENRES:
+
+[1086808] Ultimate Beastmaster (2017) | show | 3K votes | 7.2 | /US | Game-Show, Reality-TV
+GENRES:
+
+[1125517] Impractical Jokers: Inside Jokes (2016) | show | 3K votes | 8.5 | /US | Comedy, Reality-TV
+GENRES:
+
+[984718] Married at First Sight (2014) | show | 3K votes | 6.2 | /US | Reality-TV, Romance
+GENRES:
+
+[364507] Queer Eye: We're in Japan! (2019) | show | 3K votes | 8.2 | /US | Reality-TV
+GENRES:
+
+[510127] 16 and Pregnant (2009) | show | 3K votes | 3.2 | /US | Reality-TV
+GENRES:
+
+[596382] Love It or List It (2008) | show | 3K votes | 6.5 | /US | Reality-TV
+GENRES:
+
+[704518] Perfect Match (2023) | show | 3K votes | 5.8 | /US | Reality-TV, Romance
+GENRES:
+
+[591993] Swamp People (2010) | show | 3K votes | 6.2 | /US | Action, Reality-TV
+GENRES:
+
+[279392] Criss Angel Mindfreak (2005) | show | 3K votes | 5.8 | /US | Fantasy, Reality-TV
+GENRES:
+
+[296849] Little People, Big World (2006) | show | 3K votes | 6.2 | /US | Reality-TV
+GENRES:
+
+[1176915] Jersey Shore Family Vacation (2018) | show | 3K votes | 6.6 | /US | Reality-TV
+GENRES:
+
+[534780] School of Chocolate (2021) | show | 3K votes | 7.6 | /US | Game-Show, Reality-TV
+GENRES:
+
+[528733] The Chase (2009) | show | 3K votes | 7.1 | /GB | Comedy, Drama, Game-Show
+GENRES:
+
+[53719] Match Game (1973) | show | 3K votes | 8.3 | /US | Comedy, Game-Show
+GENRES:
+
+[297228] Paranormal State (2007) | show | 3K votes | 5.4 | /US | Reality-TV
+GENRES:
+
+[271790] Dragons' Den (2005) | show | 3K votes | 6.8 | /GB | Game-Show, Reality-TV
+GENRES:
+
+[672331] Billy on the Street (2011) | show | 3K votes | 7.9 | /US | Comedy, Game-Show
+GENRES:
+
+[122618] Who Wants to Be a Millionaire (1998) | show | 3K votes | 6.1 | /GB | Game-Show
+GENRES:
+
+[603213] Kourtney & Kim Take New York (2011) | show | 3K votes | 3.3 | /US | Drama, Reality-TV
+GENRES:
+
+[223292] Scare Tactics (2003) | show | 3K votes | 6.7 | /US | Comedy, Horror, Reality-TV
+GENRES:
+
+[493271] Nitro Circus (2009) | show | 3K votes | 7.6 | /US | Action, Comedy, Reality-TV
+GENRES:
+
+[448524] 19 Kids and Counting (2008) | show | 3K votes | 2.9 | /US | Documentary, Reality-TV
+GENRES:
+
+[381433] Bizarre Foods with Andrew Zimmern (2006) | show | 3K votes | 7.7 | /US | Reality-TV
+GENRES:
+
+[1163563] Comicstaan (2018) | show | 3K votes | 6.9 | /IN | Comedy, Game-Show
+GENRES:
+
+[282991] Miami Ink (2005) | show | 3K votes | 6.6 | /US | Documentary, Reality-TV
+GENRES:
+
+[83480] The Big Breakfast (1992) | show | 3K votes | 6.9 | /GB | Comedy, Game-Show, News
+GENRES:
+
+[338275] LA Ink (2007) | show | 3K votes | 5.5 | /US | Documentary, Reality-TV
+GENRES:
+
+[797770] Life Below Zero (2013) | show | 3K votes | 7.9 | /US | Adventure, Documentary, Reality-TV
+GENRES:
+
+[316527] Are You Smarter Than a 5th Grader? (2007) | show | 3K votes | 4.9 | /US | Family, Game-Show
+GENRES:
+
+[233300] Queer Eye (2003) | show | 3K votes | 6.5 | /US | Comedy, Reality-TV
+GENRES:
+
+[537818] Drag Race Philippines (2022) | show | 3K votes | 8.1 | /PH | Game-Show, Reality-TV
+GENRES:
+
+[677057] Dubai Bling (2022) | show | 3K votes | 4.1 | /AE | Reality-TV
+GENRES:
+
+[57548] Family Feud (1976) | show | 3K votes | 7.1 | /US | Game-Show
+GENRES:
+
+[1222337] Making the Cut (2020) | show | 3K votes | 6.7 | /US | Game-Show
+GENRES:
+
+[213909] Who Wants to Be a Millionaire (2002) | show | 3K votes | 6.1 | /US | Game-Show
+GENRES:
+
+[563722] WWE NXT (2010) | show | 3K votes | 7.5 | /US | Action, Reality-TV, Sport
+GENRES:
+
+[473271] Surviving Death (2021) | show | 3K votes | 6.2 | /US | Documentary, Reality-TV
+GENRES:
+
+[945025] Chrisley Knows Best (2014) | show | 3K votes | 4.9 | /US | Reality-TV
+GENRES:
+
+[1230391] Gordon, Gino & Fred's Road Trip (2018) | show | 3K votes | 8.4 | /GB | Adventure, Comedy, Reality-TV
+GENRES:
+
+[302246] Come Dine with Me (2005) | show | 3K votes | 6.5 | /GB | Game-Show, Reality-TV
+GENRES:
+
+[1078317] Scare PewDiePie (2016) | show | 3K votes | 3.9 | /US | Comedy, Horror, Reality-TV
+GENRES:
+
+[289110] Flavor of Love (2006) | show | 2K votes | 4.8 | /US | Game-Show, Reality-TV, Romance
+GENRES:
+
+[646116] Snooki & JWoww (2012) | show | 2K votes | 3.3 | /US | Reality-TV
+GENRES:
+
+[495279] Drag Race Down Under (2021) | show | 2K votes | 5.8 | /NZ | Game-Show, Reality-TV
+GENRES:
+
+[622369] Made in Chelsea (2011) | show | 2K votes | 4.6 | /GB | Documentary, Reality-TV
+GENRES:
+
+[664466] My 600-lb Life (2012) | show | 2K votes | 6.7 | /US | Reality-TV
+GENRES:
+
+[603034] Teen Mom 2 (2011) | show | 2K votes | 4.5 | /US | Documentary, Drama, Reality-TV
+GENRES:
+
+[1210798] Mortimer & Whitehouse: Gone Fishing (2018) | show | 2K votes | 9.0 | /GB | Comedy, Documentary, Game-Show
+GENRES:
+
+[271031] Iron Chef America: The Series (2004) | show | 2K votes | 7.1 | /US | Reality-TV
+GENRES:
+
+[1159454] Zumbo's Just Desserts (2016) | show | 2K votes | 6.9 | /AU | Game-Show, Reality-TV
+GENRES:
+
+[660598] The Incredible Dr. Pol (2011) | show | 2K votes | 8.6 | /US | Documentary, Reality-TV
+GENRES:
+
+[875427] The Celebrity Traitors (2025) | show | 2K votes | 8.7 | /GB | Game-Show, Reality-TV
+GENRES:
+
+[790187] Cutthroat Kitchen (2013) | show | 2K votes | 7.3 | /US | Game-Show, Reality-TV
+GENRES:
+
+[590792] The Only Way Is Essex (2010) | show | 2K votes | 3.2 | /GB | Reality-TV
+GENRES:
+
+[365932] Game Changer (2019) | show | 2K votes | 9.2 | /US | Comedy, Game-Show
+GENRES:
+
+[1104405] Naked Attraction (2016) | show | 2K votes | 5.4 | /GB | Game-Show, Reality-TV, Romance
+GENRES:
+
+[452897] Celebrity Juice (2008) | show | 2K votes | 7.0 | /GB | Comedy, Game-Show
+GENRES:
+
+[1137657] The Repair Shop (2017) | show | 2K votes | 8.7 | /GB | Documentary, Reality-TV
+GENRES:
+
+[284832] Kathy Griffin: My Life on the D-List (2005) | show | 2K votes | 7.5 | /US | Comedy, Reality-TV
+GENRES:
+
+[595970] Restaurant: Impossible (2011) | show | 2K votes | 6.8 | /US | Reality-TV
+GENRES:
+
+[834461] Unlocked: A Jail Experiment (2024) | show | 2K votes | 7.1 | /US | Documentary, Reality-TV
+GENRES:
+
+[404244] Whale Wars (2008) | show | 2K votes | 6.3 | /US | Documentary, Reality-TV
+GENRES:
+
+[1049215] BattleBots (2015) | show | 2K votes | 8.0 | /US | Action, Game-Show, Reality-TV
+GENRES:
+

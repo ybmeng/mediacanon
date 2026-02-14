@@ -1,0 +1,14 @@
+slug: top-biography-shows
+name: Top Biography Shows
+description: |
+  The highest-rated biographical TV series that bring extraordinary real lives to the screen, from political dramas to true crime docuseries.
+strategy: filter
+pinned: false
+languages: [en]
+regions: [global]
+filter:
+  type: show
+  genre: Biography
+  sort: top_rated
+  min_votes: 5000
+  limit: 100

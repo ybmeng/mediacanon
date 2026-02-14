@@ -1,0 +1,28 @@
+{{define "base"}}<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>MediaCanon</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <header>
+        <nav>
+            <a href="/" class="logo">MediaCanon</a>
+            <a href="/discover" class="nav-link">Discover</a>
+            <form action="/titles" method="get" class="search">
+                <input type="text" name="q" placeholder="Search..." aria-label="Search">
+            </form>
+            <a href="/api" class="btn">API</a>
+        </nav>
+    </header>
+    <main>
+        {{template "body" .}}
+    </main>
+    <footer>
+        <p>Open data. <a href="/titles">Browse</a> | <a href="/add">Add</a></p>
+    </footer>
+    <script src="/static/app.js?v=5"></script>
+</body>
+</html>{{end}}

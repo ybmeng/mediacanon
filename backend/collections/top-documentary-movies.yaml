@@ -1,0 +1,15 @@
+slug: top-documentary-movies
+name: Top Documentary Movies
+description: |
+  The highest-rated documentary films that illuminate the real world in compelling ways.
+  These documentaries tackle subjects ranging from nature and science to politics and human stories, offering perspectives that inform, challenge, and inspire.
+strategy: filter
+pinned: false
+languages: [en]
+regions: [global]
+filter:
+  type: movie
+  genre: Documentary
+  sort: top_rated
+  min_votes: 5000
+  limit: 100
