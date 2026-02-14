@@ -4,7 +4,8 @@ CREATE TABLE IF NOT EXISTS titles (
     id SERIAL PRIMARY KEY,
     type VARCHAR(20) NOT NULL CHECK (type IN ('movie', 'show')),
     display_name VARCHAR(500) NOT NULL,
-    year INTEGER,
+    start_year INTEGER,
+    end_year INTEGER,
     imdb_id VARCHAR(20) UNIQUE,
     image_url TEXT,
     tmdb_id INTEGER,
@@ -112,7 +113,7 @@ CREATE INDEX IF NOT EXISTS idx_title_views_title ON title_views(title_id);
 CREATE INDEX IF NOT EXISTS idx_title_views_viewed_at ON title_views(viewed_at);
 CREATE INDEX IF NOT EXISTS idx_titles_popularity ON titles(tmdb_popularity);
 CREATE INDEX IF NOT EXISTS idx_titles_rating ON titles(average_rating);
-CREATE INDEX IF NOT EXISTS idx_titles_year ON titles(year);
+CREATE INDEX IF NOT EXISTS idx_titles_start_year ON titles(start_year);
 CREATE INDEX IF NOT EXISTS idx_collection_clicks_collection ON collection_clicks(collection_id);
 CREATE INDEX IF NOT EXISTS idx_collection_clicks_clicked_at ON collection_clicks(clicked_at);
 CREATE INDEX IF NOT EXISTS idx_collections_active ON collections(active);
@@ -145,3 +146,9 @@ CREATE INDEX IF NOT EXISTS idx_title_views_source ON title_views(source);
 
 -- Track when episodes were last checked against TMDB (for daily lazy re-fetch)
 ALTER TABLE titles ADD COLUMN IF NOT EXISTS episodes_checked_at TIMESTAMP;
+
+-- Rename year -> start_year, add end_year
+ALTER TABLE titles RENAME COLUMN year TO start_year;
+ALTER TABLE titles ADD COLUMN IF NOT EXISTS end_year INTEGER;
+DROP INDEX IF EXISTS idx_titles_year;
+CREATE INDEX IF NOT EXISTS idx_titles_start_year ON titles(start_year);

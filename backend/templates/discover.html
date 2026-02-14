@@ -50,7 +50,7 @@
                 </div>
                 <div class="poster-overlay">
                     <span class="poster-title">{{.DisplayName}}</span>
-                    {{if .Year}}<span class="poster-year">{{derefInt .Year}}</span>{{end}}
+                    {{if .StartYear}}<span class="poster-year">{{derefInt .StartYear}}</span>{{end}}
                     {{if .Genres}}<span class="poster-genres">{{join .Genres ", "}}</span>{{end}}
                 </div>
             </a>
@@ -101,7 +101,7 @@
                 </div>
                 <div class="poster-overlay">
                     <span class="poster-title">{{.DisplayName}}</span>
-                    {{if .Year}}<span class="poster-year">{{derefInt .Year}}</span>{{end}}
+                    {{if .StartYear}}<span class="poster-year">{{derefInt .StartYear}}</span>{{end}}
                     {{if .Genres}}<span class="poster-genres">{{join .Genres ", "}}</span>{{end}}
                 </div>
             </a>
@@ -140,7 +140,7 @@
                     </div>
                     <div class="poster-overlay">
                         <span class="poster-title">{{.DisplayName}}</span>
-                        {{if .Year}}<span class="poster-year">{{derefInt .Year}}</span>{{end}}
+                        {{if .StartYear}}<span class="poster-year">{{derefInt .StartYear}}</span>{{end}}
                     </div>
                 </a>
                 {{end}}
@@ -236,7 +236,7 @@
                     }
                     stats += '</div>';
                     var overlay = '<div class="poster-overlay"><span class="poster-title">' + t.display_name + '</span>';
-                    if (t.year) overlay += '<span class="poster-year">' + t.year + '</span>';
+                    if (t.start_year) overlay += '<span class="poster-year">' + t.start_year + '</span>';
                     if (t.genres && t.genres.length) overlay += '<span class="poster-genres">' + t.genres.join(', ') + '</span>';
                     overlay += '</div>';
                     card.innerHTML = img + stats + overlay;

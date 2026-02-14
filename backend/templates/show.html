@@ -4,7 +4,7 @@
         {{if .Title.ImageURL}}<img src="{{.Title.ImageURL}}" alt="" class="poster">{{end}}
         <div>
             <h1>{{.Title.DisplayName}}</h1>
-            {{if .Title.Year}}<p class="year">{{.Title.Year}}</p>{{end}}
+            {{if .Title.StartYear}}<p class="year">{{derefInt .Title.StartYear}}{{if .Title.EndYear}}&ndash;{{derefInt .Title.EndYear}}{{else}}&ndash;{{end}}</p>{{end}}
             {{if .Title.Genres}}<div class="genre-tags">{{range .Title.Genres}}<span class="genre-tag">{{.}}</span>{{end}}{{if .Title.OriginalLanguage}}<span class="genre-tag lang-tag">{{langDisplay (derefStr .Title.OriginalLanguage)}}</span>{{end}}{{if .Title.OriginCountry}}<span class="genre-tag country-tag">{{countryDisplay (derefStr .Title.OriginCountry)}}</span>{{end}}</div>{{end}}
         </div>
     </header>

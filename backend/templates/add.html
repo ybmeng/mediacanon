@@ -16,8 +16,13 @@
     </label>
 
     <label>
-        Year
-        <input type="number" name="year" placeholder="2022" min="1800" max="2100">
+        Start Year
+        <input type="number" name="start_year" placeholder="2022" min="1800" max="2100">
+    </label>
+
+    <label>
+        End Year
+        <input type="number" name="end_year" placeholder="2025" min="1800" max="2100">
     </label>
 
     <label>
@@ -40,7 +45,8 @@ document.getElementById('add-form').onsubmit = async (e) => {
     const type = form.type.value;
     const data = {
         display_name: form.display_name.value,
-        year: form.year.value ? parseInt(form.year.value) : null,
+        start_year: form.start_year.value ? parseInt(form.start_year.value) : null,
+        end_year: form.end_year.value ? parseInt(form.end_year.value) : null,
         imdb_id: form.imdb_id.value || null,
         image_url: form.image_url.value || null
     };

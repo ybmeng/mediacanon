@@ -32,7 +32,8 @@
   "title_id": number,
   "type": "movie" | "show",
   "display_name": string,
-  "year": number | null,
+  "start_year": number | null,
+  "end_year": number | null,       // For shows: year the series ended (null if ongoing)
   "imdb_id": string | null,
   "image_url": string | null,
   "tmdb_id": number | null,
@@ -54,7 +55,8 @@
   "title_id": number,
   "type": "movie" | "show",
   "display_name": string,
-  "year": number | null,
+  "start_year": number | null,
+  "end_year": number | null,       // For shows: year the series ended (null if ongoing)
   "imdb_id": string | null,
   "image_url": string | null,
   "tmdb_id": number | null,
@@ -82,7 +84,8 @@
   "show_id": number,
   "title_id": number,
   "title": Title,
-  "seasons": Season[]
+  "seasons": Season[],
+  "is_series_finished": boolean    // true if end_year is set
 }</pre>
 
         <h3>Season</h3>
@@ -91,7 +94,8 @@
   "season_id": number,
   "show_id": number,
   "season_number": number,
-  "episodes": Episode[]
+  "episodes": Episode[],
+  "is_season_finished": boolean    // true if series finished or season < max season
 }</pre>
 
         <h3>Episode</h3>
@@ -132,7 +136,8 @@
       "title_id": 311356,
       "type": "show",
       "display_name": "Breaking Bad",
-      "year": 2008,
+      "start_year": 2008,
+      "end_year": 2013,
       "imdb_id": "tt0903747",
       "show_id": 47214,
       "num_votes": 2200000,
@@ -171,7 +176,7 @@
     "title_id": 67890,
     "type": "movie",
     "display_name": "The Matrix",
-    "year": 1999,
+    "start_year": 1999,
     "imdb_id": "tt0133093",
     "image_url": null,
     "created_at": "2026-01-26T12:00:00Z",
@@ -194,9 +199,11 @@
   "title": {
     "title_id": 311356,
     "display_name": "Breaking Bad",
-    "year": 2008,
+    "start_year": 2008,
+    "end_year": 2013,
     "imdb_id": "tt0903747"
   },
+  "is_series_finished": true,
   "seasons": [
     {
       "season_id": 341534,
@@ -327,7 +334,7 @@
       "title_id": 484052,
       "type": "movie",
       "display_name": "Parasite",
-      "year": 2019,
+      "start_year": 2019,
       "image_url": "https://image.tmdb.org/t/p/w500/...",
       "movie_id": 76841,
       "average_rating": 8.5,

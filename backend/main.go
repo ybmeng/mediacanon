@@ -57,7 +57,8 @@ type Title struct {
 	TitleID          int       `json:"title_id"`
 	Type             string    `json:"type"`
 	DisplayName      string    `json:"display_name"`
-	Year             *int      `json:"year,omitempty"`
+	StartYear        *int      `json:"start_year,omitempty"`
+	EndYear          *int      `json:"end_year,omitempty"`
 	IMDbID           *string   `json:"imdb_id,omitempty"`
 	ImageURL         *string   `json:"image_url,omitempty"`
 	TMDBID           *int      `json:"tmdb_id,omitempty"`
@@ -81,7 +82,7 @@ type DiscoverTitle struct {
 	TitleID          int      `json:"title_id"`
 	Type             string   `json:"type"`
 	DisplayName      string   `json:"display_name"`
-	Year             *int     `json:"year,omitempty"`
+	StartYear        *int     `json:"start_year,omitempty"`
 	ImageURL         *string  `json:"image_url,omitempty"`
 	MovieID          *int     `json:"movie_id,omitempty"`
 	ShowID           *int     `json:"show_id,omitempty"`
@@ -130,7 +131,8 @@ type TitleSearchResult struct {
 	TitleID          int       `json:"title_id"`
 	Type             string    `json:"type"`
 	DisplayName      string    `json:"display_name"`
-	Year             *int      `json:"year,omitempty"`
+	StartYear        *int      `json:"start_year,omitempty"`
+	EndYear          *int      `json:"end_year,omitempty"`
 	IMDbID           *string   `json:"imdb_id,omitempty"`
 	ImageURL         *string   `json:"image_url,omitempty"`
 	TMDBID           *int      `json:"tmdb_id,omitempty"`
@@ -152,17 +154,19 @@ type Movie struct {
 }
 
 type Show struct {
-	ShowID  int      `json:"show_id"`
-	TitleID int      `json:"title_id"`
-	Title   Title    `json:"title"`
-	Seasons []Season `json:"seasons,omitempty"`
+	ShowID           int      `json:"show_id"`
+	TitleID          int      `json:"title_id"`
+	Title            Title    `json:"title"`
+	Seasons          []Season `json:"seasons,omitempty"`
+	IsSeriesFinished *bool    `json:"is_series_finished"`
 }
 
 type Season struct {
-	SeasonID     int       `json:"season_id"`
-	ShowID       int       `json:"show_id"`
-	SeasonNumber int       `json:"season_number"`
-	Episodes     []Episode `json:"episodes,omitempty"`
+	SeasonID         int       `json:"season_id"`
+	ShowID           int       `json:"show_id"`
+	SeasonNumber     int       `json:"season_number"`
+	Episodes         []Episode `json:"episodes,omitempty"`
+	IsSeasonFinished *bool     `json:"is_season_finished"`
 }
 
 type Episode struct {
@@ -1101,7 +1105,7 @@ type TitleListItem struct {
 	TitleID          int
 	Type             string
 	DisplayName      string
-	Year             *int
+	StartYear        *int
 	IMDbID           *string
 	ImageURL         *string
 	OriginalLanguage *string
@@ -1151,7 +1155,7 @@ func handleTitlesList(w http.ResponseWriter, r *http.Request) {
 	query := `
 		SELECT
 			m.id as movie_id, s.id as show_id,
-			t.id as title_id, t.type, t.display_name, t.year,
+			t.id as title_id, t.type, t.display_name, t.start_year,
 			t.imdb_id, t.image_url, t.original_language,
 			t.num_votes, t.average_rating
 		FROM titles t
@@ -1169,7 +1173,7 @@ func handleTitlesList(w http.ResponseWriter, r *http.Request) {
 
 	for rows.Next() {
 		var item TitleListItem
-		rows.Scan(&item.MovieID, &item.ShowID, &item.TitleID, &item.Type, &item.DisplayName, &item.Year, &item.IMDbID, &item.ImageURL, &item.OriginalLanguage, &item.NumVotes, &item.AverageRating)
+		rows.Scan(&item.MovieID, &item.ShowID, &item.TitleID, &item.Type, &item.DisplayName, &item.StartYear, &item.IMDbID, &item.ImageURL, &item.OriginalLanguage, &item.NumVotes, &item.AverageRating)
 		items = append(items, item)
 	}
 
@@ -1398,7 +1402,7 @@ func handleAPITitles(w http.ResponseWriter, r *http.Request) {
 		}
 
 		query := `
-			SELECT t.id, t.type, t.display_name, t.year, t.imdb_id, t.image_url, t.tmdb_id,
+			SELECT t.id, t.type, t.display_name, t.start_year, t.end_year, t.imdb_id, t.image_url, t.tmdb_id,
 			       m.id as movie_id, s.id as show_id,
 			       t.num_votes, t.average_rating, t.original_title, t.original_language,
 			       TO_CHAR(t.release_date, 'YYYY-MM-DD'), t.created_at, t.updated_at
@@ -1417,7 +1421,7 @@ func handleAPITitles(w http.ResponseWriter, r *http.Request) {
 		var titles []TitleSearchResult
 		for rows.Next() {
 			var t TitleSearchResult
-			rows.Scan(&t.TitleID, &t.Type, &t.DisplayName, &t.Year, &t.IMDbID, &t.ImageURL, &t.TMDBID, &t.MovieID, &t.ShowID,
+			rows.Scan(&t.TitleID, &t.Type, &t.DisplayName, &t.StartYear, &t.EndYear, &t.IMDbID, &t.ImageURL, &t.TMDBID, &t.MovieID, &t.ShowID,
 				&t.NumVotes, &t.AverageRating, &t.OriginalTitle, &t.OriginalLanguage,
 				&t.ReleaseDate, &t.CreatedAt, &t.UpdatedAt)
 			titles = append(titles, t)
@@ -1448,10 +1452,10 @@ func handleAPITitles(w http.ResponseWriter, r *http.Request) {
 		}
 
 		err := db.QueryRow(`
-			INSERT INTO titles (type, display_name, year, imdb_id, image_url)
-			VALUES ($1, $2, $3, $4, $5)
+			INSERT INTO titles (type, display_name, start_year, end_year, imdb_id, image_url)
+			VALUES ($1, $2, $3, $4, $5, $6)
 			RETURNING id, created_at, updated_at
-		`, t.Type, t.DisplayName, t.Year, t.IMDbID, t.ImageURL).Scan(&t.TitleID, &t.CreatedAt, &t.UpdatedAt)
+		`, t.Type, t.DisplayName, t.StartYear, t.EndYear, t.IMDbID, t.ImageURL).Scan(&t.TitleID, &t.CreatedAt, &t.UpdatedAt)
 
 		if err != nil {
 			jsonError(w, "Failed to create title: "+err.Error(), 500)
@@ -1494,9 +1498,9 @@ func handleAPITitle(w http.ResponseWriter, r *http.Request) {
 		}
 
 		_, err := db.Exec(`
-			UPDATE titles SET display_name = $1, year = $2, imdb_id = $3, image_url = $4, updated_at = NOW()
-			WHERE id = $5
-		`, t.DisplayName, t.Year, t.IMDbID, t.ImageURL, id)
+			UPDATE titles SET display_name = $1, start_year = $2, end_year = $3, imdb_id = $4, image_url = $5, updated_at = NOW()
+			WHERE id = $6
+		`, t.DisplayName, t.StartYear, t.EndYear, t.IMDbID, t.ImageURL, id)
 		if err != nil {
 			jsonError(w, "Update failed", 500)
 			return
@@ -1528,7 +1532,8 @@ func handleAPIMoviesCreate(w http.ResponseWriter, r *http.Request) {
 
 	var req struct {
 		DisplayName string  `json:"display_name"`
-		Year        *int    `json:"year"`
+		StartYear   *int    `json:"start_year"`
+		EndYear     *int    `json:"end_year"`
 		IMDbID      *string `json:"imdb_id"`
 		ImageURL    *string `json:"image_url"`
 	}
@@ -1542,9 +1547,9 @@ func handleAPIMoviesCreate(w http.ResponseWriter, r *http.Request) {
 
 	var titleID int
 	err := tx.QueryRow(`
-		INSERT INTO titles (type, display_name, year, imdb_id, image_url)
-		VALUES ('movie', $1, $2, $3, $4) RETURNING id
-	`, req.DisplayName, req.Year, req.IMDbID, req.ImageURL).Scan(&titleID)
+		INSERT INTO titles (type, display_name, start_year, end_year, imdb_id, image_url)
+		VALUES ('movie', $1, $2, $3, $4, $5) RETURNING id
+	`, req.DisplayName, req.StartYear, req.EndYear, req.IMDbID, req.ImageURL).Scan(&titleID)
 	if err != nil {
 		jsonError(w, "Failed to create title: "+err.Error(), 500)
 		return
@@ -1589,7 +1594,8 @@ func handleAPIMovie(w http.ResponseWriter, r *http.Request) {
 	case "PUT":
 		var req struct {
 			DisplayName string  `json:"display_name"`
-			Year        *int    `json:"year"`
+			StartYear   *int    `json:"start_year"`
+			EndYear     *int    `json:"end_year"`
 			IMDbID      *string `json:"imdb_id"`
 			ImageURL    *string `json:"image_url"`
 		}
@@ -1606,9 +1612,9 @@ func handleAPIMovie(w http.ResponseWriter, r *http.Request) {
 		}
 
 		_, err = db.Exec(`
-			UPDATE titles SET display_name = $1, year = $2, imdb_id = $3, image_url = $4, updated_at = NOW()
-			WHERE id = $5
-		`, req.DisplayName, req.Year, req.IMDbID, req.ImageURL, titleID)
+			UPDATE titles SET display_name = $1, start_year = $2, end_year = $3, imdb_id = $4, image_url = $5, updated_at = NOW()
+			WHERE id = $6
+		`, req.DisplayName, req.StartYear, req.EndYear, req.IMDbID, req.ImageURL, titleID)
 		if err != nil {
 			jsonError(w, "Update failed", 500)
 			return
@@ -1638,7 +1644,8 @@ func handleAPIShowsCreate(w http.ResponseWriter, r *http.Request) {
 
 	var req struct {
 		DisplayName string  `json:"display_name"`
-		Year        *int    `json:"year"`
+		StartYear   *int    `json:"start_year"`
+		EndYear     *int    `json:"end_year"`
 		IMDbID      *string `json:"imdb_id"`
 		ImageURL    *string `json:"image_url"`
 	}
@@ -1652,9 +1659,9 @@ func handleAPIShowsCreate(w http.ResponseWriter, r *http.Request) {
 
 	var titleID int
 	err := tx.QueryRow(`
-		INSERT INTO titles (type, display_name, year, imdb_id, image_url)
-		VALUES ('show', $1, $2, $3, $4) RETURNING id
-	`, req.DisplayName, req.Year, req.IMDbID, req.ImageURL).Scan(&titleID)
+		INSERT INTO titles (type, display_name, start_year, end_year, imdb_id, image_url)
+		VALUES ('show', $1, $2, $3, $4, $5) RETURNING id
+	`, req.DisplayName, req.StartYear, req.EndYear, req.IMDbID, req.ImageURL).Scan(&titleID)
 	if err != nil {
 		jsonError(w, "Failed to create title: "+err.Error(), 500)
 		return
@@ -1708,7 +1715,8 @@ func handleAPIShow(w http.ResponseWriter, r *http.Request) {
 	case "PUT":
 		var req struct {
 			DisplayName string  `json:"display_name"`
-			Year        *int    `json:"year"`
+			StartYear   *int    `json:"start_year"`
+			EndYear     *int    `json:"end_year"`
 			IMDbID      *string `json:"imdb_id"`
 			ImageURL    *string `json:"image_url"`
 		}
@@ -1725,9 +1733,9 @@ func handleAPIShow(w http.ResponseWriter, r *http.Request) {
 		}
 
 		_, err = db.Exec(`
-			UPDATE titles SET display_name = $1, year = $2, imdb_id = $3, image_url = $4, updated_at = NOW()
-			WHERE id = $5
-		`, req.DisplayName, req.Year, req.IMDbID, req.ImageURL, titleID)
+			UPDATE titles SET display_name = $1, start_year = $2, end_year = $3, imdb_id = $4, image_url = $5, updated_at = NOW()
+			WHERE id = $6
+		`, req.DisplayName, req.StartYear, req.EndYear, req.IMDbID, req.ImageURL, titleID)
 		if err != nil {
 			jsonError(w, "Update failed", 500)
 			return
@@ -1954,12 +1962,12 @@ func handleAPIEpisode(w http.ResponseWriter, r *http.Request) {
 func getTitleByID(id int) (Title, error) {
 	var t Title
 	err := db.QueryRow(`
-		SELECT id, type, display_name, year, imdb_id, image_url, tmdb_id,
+		SELECT id, type, display_name, start_year, end_year, imdb_id, image_url, tmdb_id,
 		       num_votes, average_rating, original_title, original_language,
 		       TO_CHAR(release_date, 'YYYY-MM-DD'), tmdb_popularity, runtime_minutes,
 		       origin_country, COALESCE(needs_backfill_tmdb, true), created_at, updated_at
 		FROM titles WHERE id = $1
-	`, id).Scan(&t.TitleID, &t.Type, &t.DisplayName, &t.Year, &t.IMDbID, &t.ImageURL, &t.TMDBID,
+	`, id).Scan(&t.TitleID, &t.Type, &t.DisplayName, &t.StartYear, &t.EndYear, &t.IMDbID, &t.ImageURL, &t.TMDBID,
 		&t.NumVotes, &t.AverageRating, &t.OriginalTitle, &t.OriginalLanguage,
 		&t.ReleaseDate, &t.TMDBPopularity, &t.RuntimeMinutes,
 		&t.OriginCountry, &t.NeedsBackfillTMDB, &t.CreatedAt, &t.UpdatedAt)
@@ -1972,12 +1980,12 @@ func getTitleByID(id int) (Title, error) {
 func getMovieByID(id int) (Movie, error) {
 	var m Movie
 	err := db.QueryRow(`
-		SELECT m.id, m.title_id, t.id, t.type, t.display_name, t.year, t.imdb_id, t.image_url, t.tmdb_id,
+		SELECT m.id, m.title_id, t.id, t.type, t.display_name, t.start_year, t.end_year, t.imdb_id, t.image_url, t.tmdb_id,
 		       t.num_votes, t.average_rating, t.original_title, t.original_language,
 		       TO_CHAR(t.release_date, 'YYYY-MM-DD'), t.tmdb_popularity, t.runtime_minutes,
 		       t.origin_country, COALESCE(t.needs_backfill_tmdb, true), t.created_at, t.updated_at
 		FROM movies m JOIN titles t ON m.title_id = t.id WHERE m.id = $1
-	`, id).Scan(&m.MovieID, &m.TitleID, &m.Title.TitleID, &m.Title.Type, &m.Title.DisplayName, &m.Title.Year, &m.Title.IMDbID, &m.Title.ImageURL, &m.Title.TMDBID,
+	`, id).Scan(&m.MovieID, &m.TitleID, &m.Title.TitleID, &m.Title.Type, &m.Title.DisplayName, &m.Title.StartYear, &m.Title.EndYear, &m.Title.IMDbID, &m.Title.ImageURL, &m.Title.TMDBID,
 		&m.Title.NumVotes, &m.Title.AverageRating, &m.Title.OriginalTitle, &m.Title.OriginalLanguage,
 		&m.Title.ReleaseDate, &m.Title.TMDBPopularity, &m.Title.RuntimeMinutes,
 		&m.Title.OriginCountry, &m.Title.NeedsBackfillTMDB, &m.Title.CreatedAt, &m.Title.UpdatedAt)
@@ -1990,13 +1998,13 @@ func getMovieByID(id int) (Movie, error) {
 func getShowByID(id int, withSeasons bool) (Show, error) {
 	var s Show
 	err := db.QueryRow(`
-		SELECT s.id, s.title_id, t.id, t.type, t.display_name, t.year, t.imdb_id, t.image_url, t.tmdb_id,
+		SELECT s.id, s.title_id, t.id, t.type, t.display_name, t.start_year, t.end_year, t.imdb_id, t.image_url, t.tmdb_id,
 		       t.num_votes, t.average_rating, t.original_title, t.original_language,
 		       TO_CHAR(t.release_date, 'YYYY-MM-DD'), t.tmdb_popularity, t.runtime_minutes,
 		       t.origin_country, COALESCE(t.needs_backfill_tmdb, true), t.created_at, t.updated_at,
 		       t.episodes_checked_at
 		FROM shows s JOIN titles t ON s.title_id = t.id WHERE s.id = $1
-	`, id).Scan(&s.ShowID, &s.TitleID, &s.Title.TitleID, &s.Title.Type, &s.Title.DisplayName, &s.Title.Year, &s.Title.IMDbID, &s.Title.ImageURL, &s.Title.TMDBID,
+	`, id).Scan(&s.ShowID, &s.TitleID, &s.Title.TitleID, &s.Title.Type, &s.Title.DisplayName, &s.Title.StartYear, &s.Title.EndYear, &s.Title.IMDbID, &s.Title.ImageURL, &s.Title.TMDBID,
 		&s.Title.NumVotes, &s.Title.AverageRating, &s.Title.OriginalTitle, &s.Title.OriginalLanguage,
 		&s.Title.ReleaseDate, &s.Title.TMDBPopularity, &s.Title.RuntimeMinutes,
 		&s.Title.OriginCountry, &s.Title.NeedsBackfillTMDB, &s.Title.CreatedAt, &s.Title.UpdatedAt,
@@ -2023,6 +2031,26 @@ func getShowByID(id int, withSeasons bool) (Show, error) {
 			epRows.Close()
 
 			s.Seasons = append(s.Seasons, sn)
+		}
+
+		// Derive is_series_finished and is_season_finished flags
+		finished := s.Title.EndYear != nil
+		s.IsSeriesFinished = &finished
+
+		maxSeason := 0
+		for _, sn := range s.Seasons {
+			if sn.SeasonNumber > maxSeason {
+				maxSeason = sn.SeasonNumber
+			}
+		}
+		for i := range s.Seasons {
+			var sf bool
+			if s.Title.EndYear != nil {
+				sf = true
+			} else {
+				sf = s.Seasons[i].SeasonNumber < maxSeason
+			}
+			s.Seasons[i].IsSeasonFinished = &sf
 		}
 	}
 
@@ -2235,7 +2263,7 @@ func buildCarouselCache() {
 	// Get top 30 per type+genre
 	rows, err := db.Query(`
 		WITH ranked AS (
-			SELECT t.id, t.type, t.display_name, t.year, t.image_url,
+			SELECT t.id, t.type, t.display_name, t.start_year, t.image_url,
 				m.id as movie_id, s.id as show_id,
 				t.average_rating, t.num_votes, t.tmdb_popularity,
 				g.name as genre,
@@ -2254,7 +2282,7 @@ func buildCarouselCache() {
 				AND t.num_votes >= 5000
 				AND t.average_rating IS NOT NULL
 		)
-		SELECT id, type, display_name, year, image_url, movie_id, show_id,
+		SELECT id, type, display_name, start_year, image_url, movie_id, show_id,
 			average_rating, num_votes, tmdb_popularity, genre, engagement_count
 		FROM ranked
 		WHERE rn <= 30
@@ -2276,7 +2304,7 @@ func buildCarouselCache() {
 	for rows.Next() {
 		var d DiscoverTitle
 		var genre string
-		rows.Scan(&d.TitleID, &d.Type, &d.DisplayName, &d.Year, &d.ImageURL,
+		rows.Scan(&d.TitleID, &d.Type, &d.DisplayName, &d.StartYear, &d.ImageURL,
 			&d.MovieID, &d.ShowID, &d.AverageRating, &d.NumVotes, &d.TMDBPopularity, &genre, &d.EngagementCount)
 		entries = append(entries, entry{d, d.Type + ":" + genre})
 		uniqueIDs[d.TitleID] = true
@@ -2338,7 +2366,7 @@ func fetchDiscoverTitles(sortBy, typeFilter, langFilter, genreFilter, countryFil
 	}
 	if yearMin != "" {
 		if y, err := strconv.Atoi(yearMin); err == nil {
-			where += fmt.Sprintf(` AND t.year >= $%d`, argNum)
+			where += fmt.Sprintf(` AND t.start_year >= $%d`, argNum)
 			args = append(args, y)
 			argNum++
 		}
@@ -2372,7 +2400,7 @@ func fetchDiscoverTitles(sortBy, typeFilter, langFilter, genreFilter, countryFil
 			where += ` AND t.num_votes >= 1000`
 		}
 	case "newest":
-		orderBy = "t.year DESC NULLS LAST, t.release_date DESC NULLS LAST"
+		orderBy = "t.start_year DESC NULLS LAST, t.release_date DESC NULLS LAST"
 	case "hidden_gems":
 		orderBy = "t.average_rating DESC NULLS LAST"
 		where += ` AND t.average_rating >= 7.5 AND t.num_votes < 10000 AND t.num_votes > 100`
@@ -2386,7 +2414,7 @@ func fetchDiscoverTitles(sortBy, typeFilter, langFilter, genreFilter, countryFil
 	db.QueryRow(countQuery, args...).Scan(&total)
 
 	query := fmt.Sprintf(`
-		SELECT t.id, t.type, t.display_name, t.year, t.image_url,
+		SELECT t.id, t.type, t.display_name, t.start_year, t.image_url,
 		       m.id, s.id, t.average_rating, t.num_votes, t.tmdb_popularity,
 		       COALESCE((SELECT COUNT(*) FROM title_views tv WHERE tv.title_id = t.id), 0)
 		FROM titles t
@@ -2408,7 +2436,7 @@ func fetchDiscoverTitles(sortBy, typeFilter, langFilter, genreFilter, countryFil
 	var titleIDs []int
 	for rows.Next() {
 		var d DiscoverTitle
-		rows.Scan(&d.TitleID, &d.Type, &d.DisplayName, &d.Year, &d.ImageURL,
+		rows.Scan(&d.TitleID, &d.Type, &d.DisplayName, &d.StartYear, &d.ImageURL,
 			&d.MovieID, &d.ShowID, &d.AverageRating, &d.NumVotes, &d.TMDBPopularity, &d.EngagementCount)
 		titles = append(titles, d)
 		titleIDs = append(titleIDs, d.TitleID)
@@ -2456,7 +2484,7 @@ func getCollectionTitles(collID int, strategy string, filterParamsJSON []byte) [
 
 func fetchStaticCollectionTitles(collID int) []DiscoverTitle {
 	rows, err := db.Query(`
-		SELECT t.id, t.type, t.display_name, t.year, t.image_url,
+		SELECT t.id, t.type, t.display_name, t.start_year, t.image_url,
 		       m.id, s.id, t.average_rating, t.num_votes, t.tmdb_popularity,
 		       COALESCE((SELECT COUNT(*) FROM title_views tv WHERE tv.title_id = t.id), 0)
 		FROM collection_titles ct
@@ -2476,7 +2504,7 @@ func fetchStaticCollectionTitles(collID int) []DiscoverTitle {
 	var titleIDs []int
 	for rows.Next() {
 		var d DiscoverTitle
-		rows.Scan(&d.TitleID, &d.Type, &d.DisplayName, &d.Year, &d.ImageURL,
+		rows.Scan(&d.TitleID, &d.Type, &d.DisplayName, &d.StartYear, &d.ImageURL,
 			&d.MovieID, &d.ShowID, &d.AverageRating, &d.NumVotes, &d.TMDBPopularity, &d.EngagementCount)
 		titles = append(titles, d)
 		titleIDs = append(titleIDs, d.TitleID)

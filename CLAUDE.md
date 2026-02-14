@@ -76,7 +76,7 @@ Write endpoints (POST/PUT/DELETE) are enabled.
 psql -d mediacanon -f backend/schema.sql
 ```
 
-**Tables:** `titles` (id, type, display_name, year, imdb_id, image_url, tmdb_id, num_votes, average_rating, original_title, original_language, release_date, created_at, updated_at) → `movies` (id, title_id) / `shows` (id, title_id) → `show_seasons` (id, show_id, season) → `show_episodes` (id, season_id, episode, display_name, synopsis, image_url, air_date, runtime_minutes)
+**Tables:** `titles` (id, type, display_name, start_year, end_year, imdb_id, image_url, tmdb_id, num_votes, average_rating, original_title, original_language, release_date, created_at, updated_at) → `movies` (id, title_id) / `shows` (id, title_id) → `show_seasons` (id, show_id, season) → `show_episodes` (id, season_id, episode, display_name, synopsis, image_url, air_date, runtime_minutes)
 
 Note: `show_episodes.image_url`, `air_date`, `runtime_minutes` are added via ALTER TABLE in code/migration, not in the base `schema.sql`.
 

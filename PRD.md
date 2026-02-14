@@ -14,7 +14,8 @@ Every field we store, where it comes from, and how it gets into the database.
 |-------|-----------|--------|----------------|
 | Display name | `display_name` | IMDb `title.basics.tsv.gz` → `primaryTitle` | IMDb batch sync |
 | Type | `type` | IMDb `title.basics.tsv.gz` → `titleType` | IMDb batch sync |
-| Year | `year` | IMDb `title.basics.tsv.gz` → `startYear` | IMDb batch sync |
+| Start Year | `start_year` | IMDb `title.basics.tsv.gz` → `startYear` | IMDb batch sync |
+| End Year | `end_year` | IMDb `title.basics.tsv.gz` → `endYear` | IMDb batch sync |
 | IMDb ID | `imdb_id` | IMDb `title.basics.tsv.gz` → `tconst` | IMDb batch sync |
 | Poster image | `image_url` | TMDB Find API → `poster_path` | TMDB batch sync (shows) / on-demand lazy fetch (all) |
 | TMDB ID | `tmdb_id` | TMDB Find API → `id` | TMDB batch sync / on-demand lazy fetch |

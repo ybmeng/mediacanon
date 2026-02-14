@@ -43,7 +43,8 @@ type ExistingTitle struct {
 	ID             int
 	Type           string
 	DisplayName    string
-	Year           *int
+	StartYear      *int
+	EndYear        *int
 	OriginalTitle  string
 	RuntimeMinutes *int
 }
@@ -67,7 +68,8 @@ type TitleRecord struct {
 	ImdbID         string
 	Type           string
 	DisplayName    string
-	Year           *int
+	StartYear      *int
+	EndYear        *int
 	OriginalTitle  string
 	RuntimeMinutes *int
 	Genres         []string
@@ -321,14 +323,14 @@ func syncTitles(filepath string) error {
 	// Load existing titles from DB
 	log.Println("Loading existing titles from database...")
 	existingTitles := make(map[string]ExistingTitle)
-	rows, err := db.Query(`SELECT id, imdb_id, type, display_name, year, COALESCE(original_title, ''), runtime_minutes FROM titles`)
+	rows, err := db.Query(`SELECT id, imdb_id, type, display_name, start_year, end_year, COALESCE(original_title, ''), runtime_minutes FROM titles`)
 	if err != nil {
 		return err
 	}
 	for rows.Next() {
 		var t ExistingTitle
 		var imdbID string
-		rows.Scan(&t.ID, &imdbID, &t.Type, &t.DisplayName, &t.Year, &t.OriginalTitle, &t.RuntimeMinutes)
+		rows.Scan(&t.ID, &imdbID, &t.Type, &t.DisplayName, &t.StartYear, &t.EndYear, &t.OriginalTitle, &t.RuntimeMinutes)
 		existingTitles[imdbID] = t
 	}
 	rows.Close()
@@ -415,10 +417,18 @@ func syncTitles(filepath string) error {
 			continue
 		}
 
-		var year *int
+		var startYear *int
 		if yearStr != "\\N" {
 			if y, err := strconv.Atoi(yearStr); err == nil {
-				year = &y
+				startYear = &y
+			}
+		}
+
+		endYearStr := fields[6]
+		var endYear *int
+		if endYearStr != "\\N" {
+			if y, err := strconv.Atoi(endYearStr); err == nil {
+				endYear = &y
 			}
 		}
 
@@ -442,7 +452,8 @@ func syncTitles(filepath string) error {
 			ImdbID:         imdbID,
 			Type:           ourType,
 			DisplayName:    displayName,
-			Year:           year,
+			StartYear:      startYear,
+			EndYear:        endYear,
 			OriginalTitle:  originalTitle,
 			RuntimeMinutes: runtimeMinutes,
 			Genres:         genres,
@@ -456,7 +467,8 @@ func syncTitles(filepath string) error {
 		// Check if exists and needs update
 		if existing, ok := existingTitles[imdbID]; ok {
 			needsUpdate := existing.DisplayName != displayName ||
-				!yearsEqual(existing.Year, year) ||
+				!intsEqual(existing.StartYear, startYear) ||
+				!intsEqual(existing.EndYear, endYear) ||
 				existing.OriginalTitle != originalTitle ||
 				!intsEqual(existing.RuntimeMinutes, runtimeMinutes)
 
@@ -532,16 +544,6 @@ func syncTitles(filepath string) error {
 	return scanner.Err()
 }
 
-func yearsEqual(a, b *int) bool {
-	if a == nil && b == nil {
-		return true
-	}
-	if a == nil || b == nil {
-		return false
-	}
-	return *a == *b
-}
-
 func intsEqual(a, b *int) bool {
 	if a == nil && b == nil {
 		return true
@@ -564,20 +566,21 @@ func insertTitlesBatched(records []TitleRecord) ([]int, error) {
 		batch := records[i:end]
 
 		values := make([]string, len(batch))
-		args := make([]any, len(batch)*6)
+		args := make([]any, len(batch)*7)
 		for j, r := range batch {
-			base := j * 6
-			values[j] = fmt.Sprintf("($%d, $%d, $%d, $%d, $%d, $%d)", base+1, base+2, base+3, base+4, base+5, base+6)
+			base := j * 7
+			values[j] = fmt.Sprintf("($%d, $%d, $%d, $%d, $%d, $%d, $%d)", base+1, base+2, base+3, base+4, base+5, base+6, base+7)
 			args[base] = r.ImdbID
 			args[base+1] = r.Type
 			args[base+2] = r.DisplayName
-			args[base+3] = r.Year
-			args[base+4] = r.OriginalTitle
-			args[base+5] = r.RuntimeMinutes
+			args[base+3] = r.StartYear
+			args[base+4] = r.EndYear
+			args[base+5] = r.OriginalTitle
+			args[base+6] = r.RuntimeMinutes
 		}
 
 		rows, err := db.Query(fmt.Sprintf(`
-			INSERT INTO titles (imdb_id, type, display_name, year, original_title, runtime_minutes)
+			INSERT INTO titles (imdb_id, type, display_name, start_year, end_year, original_title, runtime_minutes)
 			VALUES %s
 			RETURNING id
 		`, strings.Join(values, ",")), args...)
@@ -610,45 +613,50 @@ func updateTitlesBatched(records []TitleRecord) error {
 		// Use a single UPDATE with CASE statements for efficiency
 		var imdbIDs []string
 		displayNames := make(map[string]string)
-		years := make(map[string]*int)
+		startYears := make(map[string]*int)
+		endYears := make(map[string]*int)
 		originalTitles := make(map[string]string)
 		runtimes := make(map[string]*int)
 
 		for _, r := range batch {
 			imdbIDs = append(imdbIDs, r.ImdbID)
 			displayNames[r.ImdbID] = r.DisplayName
-			years[r.ImdbID] = r.Year
+			startYears[r.ImdbID] = r.StartYear
+			endYears[r.ImdbID] = r.EndYear
 			originalTitles[r.ImdbID] = r.OriginalTitle
 			runtimes[r.ImdbID] = r.RuntimeMinutes
 		}
 
 		// Build UPDATE query
-		args := make([]any, 0, len(batch)*5)
+		args := make([]any, 0, len(batch)*6)
 		displayCases := make([]string, len(batch))
-		yearCases := make([]string, len(batch))
+		startYearCases := make([]string, len(batch))
+		endYearCases := make([]string, len(batch))
 		origTitleCases := make([]string, len(batch))
 		runtimeCases := make([]string, len(batch))
 		idPlaceholders := make([]string, len(batch))
 
 		for j, id := range imdbIDs {
-			base := j * 5
+			base := j * 6
 			idPlaceholders[j] = fmt.Sprintf("$%d", base+1)
 			displayCases[j] = fmt.Sprintf("WHEN imdb_id = $%d THEN $%d", base+1, base+2)
-			yearCases[j] = fmt.Sprintf("WHEN imdb_id = $%d THEN $%d::integer", base+1, base+3)
-			origTitleCases[j] = fmt.Sprintf("WHEN imdb_id = $%d THEN $%d", base+1, base+4)
-			runtimeCases[j] = fmt.Sprintf("WHEN imdb_id = $%d THEN $%d::integer", base+1, base+5)
-			args = append(args, id, displayNames[id], years[id], originalTitles[id], runtimes[id])
+			startYearCases[j] = fmt.Sprintf("WHEN imdb_id = $%d THEN $%d::integer", base+1, base+3)
+			endYearCases[j] = fmt.Sprintf("WHEN imdb_id = $%d THEN $%d::integer", base+1, base+4)
+			origTitleCases[j] = fmt.Sprintf("WHEN imdb_id = $%d THEN $%d", base+1, base+5)
+			runtimeCases[j] = fmt.Sprintf("WHEN imdb_id = $%d THEN $%d::integer", base+1, base+6)
+			args = append(args, id, displayNames[id], startYears[id], endYears[id], originalTitles[id], runtimes[id])
 		}
 
 		_, err := db.Exec(fmt.Sprintf(`
 			UPDATE titles SET
 				display_name = CASE %s END,
-				year = CASE %s END,
+				start_year = CASE %s END,
+				end_year = CASE %s END,
 				original_title = CASE %s END,
 				runtime_minutes = CASE %s END,
 				updated_at = NOW()
 			WHERE imdb_id IN (%s)
-		`, strings.Join(displayCases, " "), strings.Join(yearCases, " "), strings.Join(origTitleCases, " "), strings.Join(runtimeCases, " "), strings.Join(idPlaceholders, ",")), args...)
+		`, strings.Join(displayCases, " "), strings.Join(startYearCases, " "), strings.Join(endYearCases, " "), strings.Join(origTitleCases, " "), strings.Join(runtimeCases, " "), strings.Join(idPlaceholders, ",")), args...)
 		if err != nil {
 			return fmt.Errorf("title update: %w", err)
 		}
@@ -1652,7 +1660,7 @@ func exportGenreReview(filename string, limit int, filterGenres []string) error 
 			args = append(args, g)
 		}
 		args = append(args, limit)
-		query = fmt.Sprintf(`SELECT t.id, t.display_name, t.year, t.type, COALESCE(t.num_votes, 0), COALESCE(t.average_rating, 0),
+		query = fmt.Sprintf(`SELECT t.id, t.display_name, t.start_year, t.type, COALESCE(t.num_votes, 0), COALESCE(t.average_rating, 0),
 			COALESCE(t.original_language, ''), COALESCE(t.origin_country, ''), COALESCE(t.imdb_id, ''),
 			(SELECT string_agg(g.name, ', ' ORDER BY g.name) FROM title_genres tg JOIN genres g ON g.id = tg.genre_id WHERE tg.title_id = t.id) as genres
 			FROM titles t
@@ -1662,7 +1670,7 @@ func exportGenreReview(filename string, limit int, filterGenres []string) error 
 			LIMIT $%d`, strings.Join(placeholders, ","), len(filterGenres)+1)
 		log.Printf("Filtering by IMDb genres: %s", strings.Join(filterGenres, ", "))
 	} else {
-		query = `SELECT t.id, t.display_name, t.year, t.type, COALESCE(t.num_votes, 0), COALESCE(t.average_rating, 0),
+		query = `SELECT t.id, t.display_name, t.start_year, t.type, COALESCE(t.num_votes, 0), COALESCE(t.average_rating, 0),
 			COALESCE(t.original_language, ''), COALESCE(t.origin_country, ''), COALESCE(t.imdb_id, ''),
 			(SELECT string_agg(g.name, ', ' ORDER BY g.name) FROM title_genres tg JOIN genres g ON g.id = tg.genre_id WHERE tg.title_id = t.id) as genres
 			FROM titles t
@@ -1678,22 +1686,22 @@ func exportGenreReview(filename string, limit int, filterGenres []string) error 
 	}
 
 	type candidate struct {
-		ID      int
-		Name    string
-		Year    *int
-		Type    string
-		Votes   int
-		Rating  float64
-		Lang    string
-		Country string
-		ImdbID  string
-		Genres  *string
+		ID        int
+		Name      string
+		StartYear *int
+		Type      string
+		Votes     int
+		Rating    float64
+		Lang      string
+		Country   string
+		ImdbID    string
+		Genres    *string
 	}
 
 	var candidates []candidate
 	for rows.Next() {
 		var c candidate
-		rows.Scan(&c.ID, &c.Name, &c.Year, &c.Type, &c.Votes, &c.Rating, &c.Lang, &c.Country, &c.ImdbID, &c.Genres)
+		rows.Scan(&c.ID, &c.Name, &c.StartYear, &c.Type, &c.Votes, &c.Rating, &c.Lang, &c.Country, &c.ImdbID, &c.Genres)
 		candidates = append(candidates, c)
 	}
 	rows.Close()
@@ -1735,8 +1743,8 @@ func exportGenreReview(filename string, limit int, filterGenres []string) error 
 
 	for _, c := range candidates {
 		yearStr := "????"
-		if c.Year != nil {
-			yearStr = strconv.Itoa(*c.Year)
+		if c.StartYear != nil {
+			yearStr = strconv.Itoa(*c.StartYear)
 		}
 		langCountry := c.Lang
 		if c.Country != "" {

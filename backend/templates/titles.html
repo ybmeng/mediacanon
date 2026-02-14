@@ -31,7 +31,7 @@
             {{else}}
             <a href="/shows/{{.ShowID}}?source=search">{{.DisplayName}}</a>
             {{end}}
-            {{if .Year}}<span class="year">({{.Year}})</span>{{end}}
+            {{if .StartYear}}<span class="year">({{derefInt .StartYear}})</span>{{end}}
             <span class="chip chip-{{.Type}}">{{.Type}}</span>
             {{if .OriginalLanguage}}<span class="chip chip-lang">{{langDisplay .OriginalLanguage}}</span>{{end}}
             {{if .AverageRating}}<span class="chip chip-rating">{{fmtRating .AverageRating .NumVotes}}</span>{{end}}
