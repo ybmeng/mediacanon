@@ -113,7 +113,6 @@ CREATE INDEX IF NOT EXISTS idx_title_views_title ON title_views(title_id);
 CREATE INDEX IF NOT EXISTS idx_title_views_viewed_at ON title_views(viewed_at);
 CREATE INDEX IF NOT EXISTS idx_titles_popularity ON titles(tmdb_popularity);
 CREATE INDEX IF NOT EXISTS idx_titles_rating ON titles(average_rating);
-CREATE INDEX IF NOT EXISTS idx_titles_start_year ON titles(start_year);
 CREATE INDEX IF NOT EXISTS idx_collection_clicks_collection ON collection_clicks(collection_id);
 CREATE INDEX IF NOT EXISTS idx_collection_clicks_clicked_at ON collection_clicks(clicked_at);
 CREATE INDEX IF NOT EXISTS idx_collections_active ON collections(active);

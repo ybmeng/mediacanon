@@ -50,7 +50,7 @@
                 </div>
                 <div class="poster-overlay">
                     <span class="poster-title">{{.DisplayName}}</span>
-                    {{if .StartYear}}<span class="poster-year">{{derefInt .StartYear}}</span>{{end}}
+                    {{if .StartYear}}<span class="poster-year">{{derefInt .StartYear}}{{if .EndYear}}&ndash;{{derefInt .EndYear}}{{else if eq .Type "show"}}&ndash;{{end}}</span>{{end}}
                     {{if .Genres}}<span class="poster-genres">{{join .Genres ", "}}</span>{{end}}
                 </div>
             </a>
@@ -101,7 +101,7 @@
                 </div>
                 <div class="poster-overlay">
                     <span class="poster-title">{{.DisplayName}}</span>
-                    {{if .StartYear}}<span class="poster-year">{{derefInt .StartYear}}</span>{{end}}
+                    {{if .StartYear}}<span class="poster-year">{{derefInt .StartYear}}{{if .EndYear}}&ndash;{{derefInt .EndYear}}{{else if eq .Type "show"}}&ndash;{{end}}</span>{{end}}
                     {{if .Genres}}<span class="poster-genres">{{join .Genres ", "}}</span>{{end}}
                 </div>
             </a>
@@ -140,7 +140,7 @@
                     </div>
                     <div class="poster-overlay">
                         <span class="poster-title">{{.DisplayName}}</span>
-                        {{if .StartYear}}<span class="poster-year">{{derefInt .StartYear}}</span>{{end}}
+                        {{if .StartYear}}<span class="poster-year">{{derefInt .StartYear}}{{if .EndYear}}&ndash;{{derefInt .EndYear}}{{else if eq .Type "show"}}&ndash;{{end}}</span>{{end}}
                     </div>
                 </a>
                 {{end}}
@@ -236,7 +236,12 @@
                     }
                     stats += '</div>';
                     var overlay = '<div class="poster-overlay"><span class="poster-title">' + t.display_name + '</span>';
-                    if (t.start_year) overlay += '<span class="poster-year">' + t.start_year + '</span>';
+                    if (t.start_year) {
+                        var yr = '' + t.start_year;
+                        if (t.end_year) yr += '\u2013' + t.end_year;
+                        else if (t.type === 'show') yr += '\u2013';
+                        overlay += '<span class="poster-year">' + yr + '</span>';
+                    }
                     if (t.genres && t.genres.length) overlay += '<span class="poster-genres">' + t.genres.join(', ') + '</span>';
                     overlay += '</div>';
                     card.innerHTML = img + stats + overlay;

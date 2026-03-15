@@ -112,6 +112,64 @@ When a user views a title detail page:
 
 This is the only mechanism that handles **movies** — the TMDB batch sync only covers shows.
 
+## Run Instructions
+
+### Server
+
+Runs as a launchd service on macOS. Binary at `backend/mediacanon`, port 8081, with `TMDB_API_KEY` set in the plist.
+
+```bash
+# Rebuild and restart server + cloudflared tunnel
+./update
+
+# Check status
+launchctl print gui/$(id -u)/com.mediacanon.server
+
+# View logs
+tail -f /tmp/mediacanon-stdout.log    # stdout
+tail -f /tmp/mediacanon-stderr.log    # stderr
+```
+
+Launchd plists: `~/Library/LaunchAgents/com.mediacanon.server.plist`, `~/Library/LaunchAgents/com.mediacanon.tunnel.plist`
+
+### Database Setup
+
+```bash
+psql -d mediacanon -f backend/schema.sql
+```
+
+### IMDb Batch Sync
+
+Imports titles, episodes, ratings, genres from IMDb dataset files (~300MB download).
+
+```bash
+./sync-mediacanon
+```
+
+This builds `cmd/sync/main.go` and runs it. Downloads TSV files from `datasets.imdbws.com`, diffs against existing DB rows, and does batched inserts/updates. IMDb updates daily; we run on-demand.
+
+### TMDB Image Batch Sync
+
+Fetches poster images and episode metadata (stills, air dates, runtime) for shows missing images. Requires TMDB API key.
+
+```bash
+cd backend && go build -o sync-images ./cmd/sync-images/ && ./sync-images -key $TMDB_API_KEY
+```
+
+Only processes shows. Movies get images via on-demand lazy fetch from the server.
+
+### TMDB On-Demand Backfill
+
+The server itself fetches TMDB metadata (poster, language, country, popularity) when a user visits a title page and `needs_backfill_tmdb` is true. No manual action needed — happens automatically with `TMDB_API_KEY` set.
+
+To re-fetch TMDB data for all titles (e.g. after adding new fields):
+
+```bash
+./reset-tmdb-backfill
+```
+
+This runs `schema.sql` and sets `needs_backfill_tmdb = true` on every title.
+
 ## Implemented: numVotes for Search Ranking
 
 IMDb's `numVotes` is used as the primary search ranking signal. All title search and browse queries order by `num_votes DESC NULLS LAST`. This was chosen because:

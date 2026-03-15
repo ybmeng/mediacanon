@@ -83,6 +83,7 @@ type DiscoverTitle struct {
 	Type             string   `json:"type"`
 	DisplayName      string   `json:"display_name"`
 	StartYear        *int     `json:"start_year,omitempty"`
+	EndYear          *int     `json:"end_year,omitempty"`
 	ImageURL         *string  `json:"image_url,omitempty"`
 	MovieID          *int     `json:"movie_id,omitempty"`
 	ShowID           *int     `json:"show_id,omitempty"`
@@ -1106,6 +1107,7 @@ type TitleListItem struct {
 	Type             string
 	DisplayName      string
 	StartYear        *int
+	EndYear          *int
 	IMDbID           *string
 	ImageURL         *string
 	OriginalLanguage *string
@@ -1155,7 +1157,7 @@ func handleTitlesList(w http.ResponseWriter, r *http.Request) {
 	query := `
 		SELECT
 			m.id as movie_id, s.id as show_id,
-			t.id as title_id, t.type, t.display_name, t.start_year,
+			t.id as title_id, t.type, t.display_name, t.start_year, t.end_year,
 			t.imdb_id, t.image_url, t.original_language,
 			t.num_votes, t.average_rating
 		FROM titles t
@@ -1173,7 +1175,7 @@ func handleTitlesList(w http.ResponseWriter, r *http.Request) {
 
 	for rows.Next() {
 		var item TitleListItem
-		rows.Scan(&item.MovieID, &item.ShowID, &item.TitleID, &item.Type, &item.DisplayName, &item.StartYear, &item.IMDbID, &item.ImageURL, &item.OriginalLanguage, &item.NumVotes, &item.AverageRating)
+		rows.Scan(&item.MovieID, &item.ShowID, &item.TitleID, &item.Type, &item.DisplayName, &item.StartYear, &item.EndYear, &item.IMDbID, &item.ImageURL, &item.OriginalLanguage, &item.NumVotes, &item.AverageRating)
 		items = append(items, item)
 	}
 
@@ -2263,7 +2265,7 @@ func buildCarouselCache() {
 	// Get top 30 per type+genre
 	rows, err := db.Query(`
 		WITH ranked AS (
-			SELECT t.id, t.type, t.display_name, t.start_year, t.image_url,
+			SELECT t.id, t.type, t.display_name, t.start_year, t.end_year, t.image_url,
 				m.id as movie_id, s.id as show_id,
 				t.average_rating, t.num_votes, t.tmdb_popularity,
 				g.name as genre,
@@ -2282,7 +2284,7 @@ func buildCarouselCache() {
 				AND t.num_votes >= 5000
 				AND t.average_rating IS NOT NULL
 		)
-		SELECT id, type, display_name, start_year, image_url, movie_id, show_id,
+		SELECT id, type, display_name, start_year, end_year, image_url, movie_id, show_id,
 			average_rating, num_votes, tmdb_popularity, genre, engagement_count
 		FROM ranked
 		WHERE rn <= 30
@@ -2304,7 +2306,7 @@ func buildCarouselCache() {
 	for rows.Next() {
 		var d DiscoverTitle
 		var genre string
-		rows.Scan(&d.TitleID, &d.Type, &d.DisplayName, &d.StartYear, &d.ImageURL,
+		rows.Scan(&d.TitleID, &d.Type, &d.DisplayName, &d.StartYear, &d.EndYear, &d.ImageURL,
 			&d.MovieID, &d.ShowID, &d.AverageRating, &d.NumVotes, &d.TMDBPopularity, &genre, &d.EngagementCount)
 		entries = append(entries, entry{d, d.Type + ":" + genre})
 		uniqueIDs[d.TitleID] = true
@@ -2414,7 +2416,7 @@ func fetchDiscoverTitles(sortBy, typeFilter, langFilter, genreFilter, countryFil
 	db.QueryRow(countQuery, args...).Scan(&total)
 
 	query := fmt.Sprintf(`
-		SELECT t.id, t.type, t.display_name, t.start_year, t.image_url,
+		SELECT t.id, t.type, t.display_name, t.start_year, t.end_year, t.image_url,
 		       m.id, s.id, t.average_rating, t.num_votes, t.tmdb_popularity,
 		       COALESCE((SELECT COUNT(*) FROM title_views tv WHERE tv.title_id = t.id), 0)
 		FROM titles t
@@ -2436,7 +2438,7 @@ func fetchDiscoverTitles(sortBy, typeFilter, langFilter, genreFilter, countryFil
 	var titleIDs []int
 	for rows.Next() {
 		var d DiscoverTitle
-		rows.Scan(&d.TitleID, &d.Type, &d.DisplayName, &d.StartYear, &d.ImageURL,
+		rows.Scan(&d.TitleID, &d.Type, &d.DisplayName, &d.StartYear, &d.EndYear, &d.ImageURL,
 			&d.MovieID, &d.ShowID, &d.AverageRating, &d.NumVotes, &d.TMDBPopularity, &d.EngagementCount)
 		titles = append(titles, d)
 		titleIDs = append(titleIDs, d.TitleID)
@@ -2484,7 +2486,7 @@ func getCollectionTitles(collID int, strategy string, filterParamsJSON []byte) [
 
 func fetchStaticCollectionTitles(collID int) []DiscoverTitle {
 	rows, err := db.Query(`
-		SELECT t.id, t.type, t.display_name, t.start_year, t.image_url,
+		SELECT t.id, t.type, t.display_name, t.start_year, t.end_year, t.image_url,
 		       m.id, s.id, t.average_rating, t.num_votes, t.tmdb_popularity,
 		       COALESCE((SELECT COUNT(*) FROM title_views tv WHERE tv.title_id = t.id), 0)
 		FROM collection_titles ct
@@ -2504,7 +2506,7 @@ func fetchStaticCollectionTitles(collID int) []DiscoverTitle {
 	var titleIDs []int
 	for rows.Next() {
 		var d DiscoverTitle
-		rows.Scan(&d.TitleID, &d.Type, &d.DisplayName, &d.StartYear, &d.ImageURL,
+		rows.Scan(&d.TitleID, &d.Type, &d.DisplayName, &d.StartYear, &d.EndYear, &d.ImageURL,
 			&d.MovieID, &d.ShowID, &d.AverageRating, &d.NumVotes, &d.TMDBPopularity, &d.EngagementCount)
 		titles = append(titles, d)
 		titleIDs = append(titleIDs, d.TitleID)
