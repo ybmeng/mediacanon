@@ -211,6 +211,10 @@ type TMDBEpisodeResponse struct {
 }
 
 func main() {
+	if os.Getenv("HEADLESS") == "1" {
+		onReadyHeadless()
+		return
+	}
 	systray.Run(onReady, onExit)
 }
 
@@ -456,6 +460,188 @@ func onReady() {
 		db.Close()
 		systray.Quit()
 	}()
+}
+
+func onReadyHeadless() {
+	setupLogging()
+
+	tmdbAPIKey = os.Getenv("TMDB_API_KEY")
+	if tmdbAPIKey != "" {
+		log.Println("TMDB API key configured — on-demand image fetching enabled")
+	}
+
+	// Parse templates
+	funcMap := template.FuncMap{
+		"langDisplay":    langDisplay,
+		"countryDisplay": countryDisplay,
+		"fmtRating":      fmtRating,
+		"add":         func(a, b int) int { return a + b },
+		"subtract":    func(a, b int) int { return a - b },
+		"join": strings.Join,
+		"derefStr": func(p *string) string {
+			if p == nil {
+				return ""
+			}
+			return *p
+		},
+		"derefInt": func(p *int) int {
+			if p == nil {
+				return 0
+			}
+			return *p
+		},
+		"derefFloat": func(p *float64) float64 {
+			if p == nil {
+				return 0
+			}
+			return *p
+		},
+		"fmtVotes": func(p *int) string {
+			if p == nil {
+				return ""
+			}
+			v := *p
+			if v >= 1000000 {
+				return fmt.Sprintf("%.1fM", float64(v)/1000000)
+			}
+			if v >= 1000 {
+				return fmt.Sprintf("%.1fK", float64(v)/1000)
+			}
+			return strconv.Itoa(v)
+		},
+		"chipURL": func(data map[string]any, key, value string) string {
+			keyMap := map[string]string{"genre": "Genre", "country": "Country", "type": "Type", "sort": "Sort"}
+			params := make(map[string]string)
+			for k, tmplKey := range keyMap {
+				if v, ok := data[tmplKey].(string); ok {
+					params[k] = v
+				}
+			}
+			if current := params[key]; current == value {
+				params[key] = ""
+			} else {
+				params[key] = value
+			}
+			var parts []string
+			for _, k := range []string{"genre", "country", "type", "sort"} {
+				if params[k] != "" {
+					parts = append(parts, k+"="+params[k])
+				}
+			}
+			if len(parts) == 0 {
+				return "/discover"
+			}
+			return "/discover?" + strings.Join(parts, "&")
+		},
+	}
+	tmpls = make(map[string]*template.Template)
+	pages := []string{"home", "titles", "movie", "show", "add", "search", "api", "discover"}
+	for _, page := range pages {
+		t, err := template.New("").Funcs(funcMap).ParseFS(templateFS, "templates/base.html", "templates/"+page+".html")
+		if err != nil {
+			log.Fatalf("Error parsing %s template: %v", page, err)
+		}
+		tmpls[page] = t
+	}
+
+	// Database connection
+	dsn := os.Getenv("DATABASE_URL")
+	if dsn == "" {
+		dsn = "postgres://localhost/mediacanon?sslmode=disable"
+	}
+	var err error
+	db, err = sql.Open("postgres", dsn)
+	if err != nil {
+		log.Fatal(err)
+	}
+	db.SetMaxOpenConns(25)
+	db.SetMaxIdleConns(5)
+	db.SetConnMaxLifetime(5 * time.Minute)
+	db.SetConnMaxIdleTime(1 * time.Minute)
+
+	if err := db.Ping(); err != nil {
+		log.Printf("Warning: database not connected: %v", err)
+	}
+
+	loadCollections()
+	buildCarouselCache()
+
+	go func() {
+		cleanupOldViews()
+		ticker := time.NewTicker(24 * time.Hour)
+		for range ticker.C {
+			cleanupOldViews()
+		}
+	}()
+
+	mux := http.NewServeMux()
+
+	mux.HandleFunc("/static/", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Cache-Control", "no-store, no-cache, must-revalidate")
+		w.Header().Set("Pragma", "no-cache")
+		w.Header().Set("Expires", "0")
+		http.FileServer(http.FS(staticFS)).ServeHTTP(w, r)
+	})
+
+	noCache := func(next http.HandlerFunc) http.HandlerFunc {
+		return func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Cache-Control", "no-store, no-cache, must-revalidate")
+			w.Header().Set("Pragma", "no-cache")
+			w.Header().Set("Expires", "0")
+			next(w, r)
+		}
+	}
+
+	mux.HandleFunc("/", noCache(handleHome))
+	mux.HandleFunc("/discover", noCache(handleDiscoverPage))
+	mux.HandleFunc("/titles", noCache(handleTitlesList))
+	mux.HandleFunc("/movies/", noCache(handleMoviePage))
+	mux.HandleFunc("/shows/", noCache(handleShowPage))
+	mux.HandleFunc("/add", noCache(handleAddPage))
+	mux.HandleFunc("/api", noCache(handleAPIPage))
+	mux.HandleFunc("/api/", noCache(handleAPISlash))
+	mux.HandleFunc("/api/titles", noCache(handleAPITitles))
+	mux.HandleFunc("/api/titles/", noCache(handleAPITitle))
+	mux.HandleFunc("/api/movies", noCache(handleAPIMoviesCreate))
+	mux.HandleFunc("/api/movies/", noCache(handleAPIMovie))
+	mux.HandleFunc("/api/shows", noCache(handleAPIShowsCreate))
+	mux.HandleFunc("/api/shows/", noCache(handleAPIShow))
+	mux.HandleFunc("/api/seasons/", noCache(handleAPISeason))
+	mux.HandleFunc("/api/episodes/", noCache(handleAPIEpisode))
+	mux.HandleFunc("/api/discover/carousels", noCache(handleAPIDiscoverCarousels))
+	mux.HandleFunc("/api/discover", noCache(handleAPIDiscover))
+	mux.HandleFunc("/api/collections", noCache(handleAPICollections))
+	mux.HandleFunc("/api/collections/", noCache(handleAPICollection))
+
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+
+	listener, err := net.Listen("tcp", ":"+port)
+	if err != nil {
+		log.Fatalf("Failed to listen on port %s: %v", port, err)
+	}
+
+	addr := listener.Addr().(*net.TCPAddr)
+	log.Printf("MediaCanon running on http://0.0.0.0:%d (headless)", addr.Port)
+
+	server := &http.Server{Handler: mux}
+
+	go func() {
+		if err := server.Serve(listener); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("HTTP server error: %v", err)
+		}
+	}()
+
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+	<-sigCh
+	log.Println("Received signal, shutting down...")
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	server.Shutdown(ctx)
+	cancel()
+	db.Close()
 }
 
 func onExit() {
@@ -2017,22 +2203,26 @@ func getShowByID(id int, withSeasons bool) (Show, error) {
 	s.Title.Genres = loadGenresForTitle(s.Title.TitleID)
 
 	if withSeasons {
+		// Collect seasons first, then close rows before querying episodes.
+		// Nested db.Query calls inside rows.Next() holds two connections
+		// simultaneously, which can exhaust the pool under concurrency.
 		rows, _ := db.Query(`SELECT id, show_id, season FROM show_seasons WHERE show_id = $1 ORDER BY season`, id)
-		defer rows.Close()
 		for rows.Next() {
 			var sn Season
 			rows.Scan(&sn.SeasonID, &sn.ShowID, &sn.SeasonNumber)
+			s.Seasons = append(s.Seasons, sn)
+		}
+		rows.Close()
 
-			// Get episodes for this season
+		// Now load episodes for each season (one connection at a time)
+		for i, sn := range s.Seasons {
 			epRows, _ := db.Query(`SELECT id, season_id, episode, display_name, image_url, TO_CHAR(air_date, 'YYYY-MM-DD'), runtime_minutes, synopsis FROM show_episodes WHERE season_id = $1 ORDER BY episode`, sn.SeasonID)
 			for epRows.Next() {
 				var e Episode
 				epRows.Scan(&e.EpisodeID, &e.SeasonID, &e.EpisodeNumber, &e.DisplayName, &e.ImageURL, &e.AirDate, &e.RuntimeMinutes, &e.Synopsis)
-				sn.Episodes = append(sn.Episodes, e)
+				s.Seasons[i].Episodes = append(s.Seasons[i].Episodes, e)
 			}
 			epRows.Close()
-
-			s.Seasons = append(s.Seasons, sn)
 		}
 
 		// Derive is_series_finished and is_season_finished flags
@@ -2560,22 +2750,22 @@ func handleDiscoverPage(w http.ResponseWriter, r *http.Request) {
 
 	gRows, _ := db.Query(`SELECT g.name, COUNT(*) as cnt FROM genres g JOIN title_genres tg ON tg.genre_id = g.id JOIN titles t ON tg.title_id = t.id WHERE t.image_url IS NOT NULL AND t.image_url NOT IN ('none','TMDB_NOT_FOUND_DO_NOT_RETRY') GROUP BY g.name ORDER BY cnt DESC LIMIT 15`)
 	if gRows != nil {
-		defer gRows.Close()
 		for gRows.Next() {
 			var ci chipItem
 			gRows.Scan(&ci.Name, &ci.Count)
 			genreChips = append(genreChips, ci)
 		}
+		gRows.Close()
 	}
 
 	cRows, _ := db.Query(`SELECT origin_country, COUNT(*) as cnt FROM titles WHERE origin_country IS NOT NULL AND origin_country != '' AND image_url IS NOT NULL AND image_url NOT IN ('none','TMDB_NOT_FOUND_DO_NOT_RETRY') GROUP BY origin_country ORDER BY cnt DESC LIMIT 15`)
 	if cRows != nil {
-		defer cRows.Close()
 		for cRows.Next() {
 			var ci chipItem
 			cRows.Scan(&ci.Code, &ci.Count)
 			countryChips = append(countryChips, ci)
 		}
+		cRows.Close()
 	}
 
 	if collectionSlug != "" {
@@ -2607,7 +2797,6 @@ func handleDiscoverPage(w http.ResponseWriter, r *http.Request) {
 		var showColls, movieColls []collMeta
 		collRows, _ := db.Query(`SELECT id, name, slug, COALESCE(description, ''), strategy, pinned, active, engagement_count, COALESCE(filter_params::text, '{}') FROM collections WHERE active = true AND strategy = 'filter' ORDER BY pinned DESC, engagement_count DESC`)
 		if collRows != nil {
-			defer collRows.Close()
 			for collRows.Next() {
 				var cm collMeta
 				var fpStr string
@@ -2625,6 +2814,7 @@ func handleDiscoverPage(w http.ResponseWriter, r *http.Request) {
 					movieColls = append(movieColls, cm)
 				}
 			}
+			collRows.Close()
 		}
 
 		// Interleave: show, movie, show, movie...
@@ -2733,7 +2923,6 @@ func handleAPIDiscoverCarousels(w http.ResponseWriter, r *http.Request) {
 	var showColls, movieColls []collMeta
 	collRows, _ := db.Query(`SELECT id, name, slug, COALESCE(description, ''), strategy, pinned, active, engagement_count, COALESCE(filter_params::text, '{}') FROM collections WHERE active = true AND strategy = 'filter' ORDER BY pinned DESC, engagement_count DESC`)
 	if collRows != nil {
-		defer collRows.Close()
 		for collRows.Next() {
 			var cm collMeta
 			var fpStr string
@@ -2751,6 +2940,7 @@ func handleAPIDiscoverCarousels(w http.ResponseWriter, r *http.Request) {
 				movieColls = append(movieColls, cm)
 			}
 		}
+		collRows.Close()
 	}
 
 	// Interleave: show, movie, show, movie...
