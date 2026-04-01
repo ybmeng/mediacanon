@@ -14,6 +14,7 @@
         <a href="#episodes">Episodes</a> |
         <a href="#discover">Discover</a> |
         <a href="#collections">Collections</a> |
+        <a href="#v2">V2 API</a> |
         <a href="#examples">Examples</a>
     </nav>
 
@@ -390,6 +391,129 @@
 }</pre>
     </section>
 
+    <section id="v2">
+        <h2>V2 API</h2>
+        <p>Simplified, flat endpoints designed for client consumption. No internal IDs exposed &mdash; <code>title_id</code> is the sole public identity.</p>
+
+        <h3>MCTitleLayer</h3>
+        <p>Unified title response. For shows, includes season/episode metadata. For movies, includes runtime.</p>
+        <pre>{
+  "title_id": number,
+  "kind": "movie" | "show",
+  "imdb_id": string | null,
+  "display_name": string,
+  "poster_url": string | null,
+  "start_year": number | null,
+  "end_year": number | null,
+  "genres": string[],
+  "rating": number | null,          // IMDb rating (0-10)
+  "vote_count": number | null,      // IMDb vote count
+  "runtime_minutes": number | null,  // Movies only
+  "show": MCShowInfo | null          // Shows only
+}</pre>
+
+        <h3>MCShowInfo</h3>
+        <pre>{
+  "season_count": number,
+  "episode_count": number,           // Total across all seasons
+  "is_finished": boolean,
+  "seasons": [
+    { "season_number": number, "episode_count": number }
+  ]
+}</pre>
+
+        <h3>MCEpisodeLayer</h3>
+        <pre>{
+  "episode_number": number,
+  "display_name": string | null,
+  "image_url": string | null,
+  "synopsis": string | null,
+  "runtime_minutes": number | null,
+  "air_date": string | null          // "YYYY-MM-DD" format
+}</pre>
+
+        <h3>GET /api/v2/titles/:titleId</h3>
+        <p>Get a title by title_id. Returns MCTitleLayer.</p>
+        <p><strong>Response (show):</strong></p>
+        <pre>GET /api/v2/titles/311356
+
+{
+  "title_id": 311356,
+  "kind": "show",
+  "imdb_id": "tt0903747",
+  "display_name": "Breaking Bad",
+  "poster_url": "https://image.tmdb.org/t/p/w500/...",
+  "start_year": 2008,
+  "end_year": 2013,
+  "genres": ["Crime", "Drama", "Thriller"],
+  "rating": 9.5,
+  "vote_count": 2200000,
+  "runtime_minutes": null,
+  "show": {
+    "season_count": 5,
+    "episode_count": 62,
+    "is_finished": true,
+    "seasons": [
+      { "season_number": 1, "episode_count": 7 },
+      { "season_number": 2, "episode_count": 13 }
+    ]
+  }
+}</pre>
+        <p><strong>Response (movie):</strong></p>
+        <pre>GET /api/v2/titles/67890
+
+{
+  "title_id": 67890,
+  "kind": "movie",
+  "imdb_id": "tt0133093",
+  "display_name": "The Matrix",
+  "poster_url": "https://image.tmdb.org/t/p/w500/...",
+  "start_year": 1999,
+  "end_year": null,
+  "genres": ["Action", "Sci-Fi"],
+  "rating": 8.7,
+  "vote_count": 2000000,
+  "runtime_minutes": 136,
+  "show": null
+}</pre>
+
+        <h3>GET /api/v2/titles/:titleId/episodes?season=N</h3>
+        <p>Get all episodes for a season. Returns MCEpisodeLayer[], ordered by episode number. No pagination &mdash; complete season snapshot.</p>
+        <table>
+            <tr><th>Param</th><th>Type</th><th>Description</th></tr>
+            <tr><td><code>season</code></td><td>number</td><td>Season number (required)</td></tr>
+        </table>
+        <p><strong>Response:</strong></p>
+        <pre>GET /api/v2/titles/311356/episodes?season=1
+
+[
+  {
+    "episode_number": 1,
+    "display_name": "Pilot",
+    "image_url": "https://image.tmdb.org/t/p/w500/...",
+    "synopsis": "A high school chemistry teacher...",
+    "runtime_minutes": 58,
+    "air_date": "2008-01-20"
+  },
+  {
+    "episode_number": 2,
+    "display_name": "Cat's in the Bag...",
+    "image_url": "https://image.tmdb.org/t/p/w500/...",
+    "synopsis": "Walt and Jesse attempt to...",
+    "runtime_minutes": 49,
+    "air_date": "2008-01-27"
+  }
+]</pre>
+
+        <h3>Errors</h3>
+        <table>
+            <tr><th>Scenario</th><th>Status</th><th>Response</th></tr>
+            <tr><td>Unknown titleId</td><td>404</td><td><code>{"error": "title not found"}</code></td></tr>
+            <tr><td>Movie + ?season=N</td><td>400</td><td><code>{"error": "title is not a show"}</code></td></tr>
+            <tr><td>Season out of range</td><td>404</td><td><code>{"error": "season not found"}</code></td></tr>
+        </table>
+    </section>
+
     <section id="examples">
         <h2>Usage Examples</h2>
 
@@ -401,7 +525,11 @@ curl https://mediacanon.org/api/movies/12345
 curl https://mediacanon.org/api/discover?genre=Horror&amp;sort=top_rated
 curl https://mediacanon.org/api/discover?country=JP&amp;type=movie&amp;page=2
 curl https://mediacanon.org/api/collections
-curl https://mediacanon.org/api/collections/classic-anime</pre>
+curl https://mediacanon.org/api/collections/classic-anime
+
+# V2 API
+curl https://mediacanon.org/api/v2/titles/311356
+curl https://mediacanon.org/api/v2/titles/311356/episodes?season=1</pre>
 
         <h3>JavaScript</h3>
         <pre>const res = await fetch('https://mediacanon.org/api/titles?q=breaking');

@@ -181,6 +181,44 @@ type Episode struct {
 	Synopsis       *string `json:"synopsis,omitempty"`
 }
 
+// V2 API Models
+
+type MCTitleLayer struct {
+	TitleID        int          `json:"title_id"`
+	Kind           string       `json:"kind"`
+	IMDbID         *string      `json:"imdb_id"`
+	DisplayName    string       `json:"display_name"`
+	PosterURL      *string      `json:"poster_url"`
+	StartYear      *int         `json:"start_year"`
+	EndYear        *int         `json:"end_year"`
+	Genres         []string     `json:"genres"`
+	Rating         *float64     `json:"rating"`
+	VoteCount      *int         `json:"vote_count"`
+	RuntimeMinutes *int         `json:"runtime_minutes"`
+	Show           *MCShowInfo  `json:"show"`
+}
+
+type MCShowInfo struct {
+	SeasonCount  int            `json:"season_count"`
+	EpisodeCount int            `json:"episode_count"`
+	IsFinished   bool           `json:"is_finished"`
+	Seasons      []MCSeasonInfo `json:"seasons"`
+}
+
+type MCSeasonInfo struct {
+	SeasonNumber int `json:"season_number"`
+	EpisodeCount int `json:"episode_count"`
+}
+
+type MCEpisodeLayer struct {
+	EpisodeNumber  int     `json:"episode_number"`
+	DisplayName    *string `json:"display_name"`
+	ImageURL       *string `json:"image_url"`
+	Synopsis       *string `json:"synopsis"`
+	RuntimeMinutes *int    `json:"runtime_minutes"`
+	AirDate        *string `json:"air_date"`
+}
+
 // TMDB types for on-demand image fetching
 
 type TMDBFindResponse struct {
@@ -388,6 +426,9 @@ func onReady() {
 	mux.HandleFunc("/api/discover", noCache(handleAPIDiscover))
 	mux.HandleFunc("/api/collections", noCache(handleAPICollections))
 	mux.HandleFunc("/api/collections/", noCache(handleAPICollection))
+
+	// API v2
+	mux.HandleFunc("/api/v2/titles/", noCache(handleAPIV2Title))
 
 	port := os.Getenv("PORT")
 	if port == "" {
@@ -612,6 +653,9 @@ func onReadyHeadless() {
 	mux.HandleFunc("/api/discover", noCache(handleAPIDiscover))
 	mux.HandleFunc("/api/collections", noCache(handleAPICollections))
 	mux.HandleFunc("/api/collections/", noCache(handleAPICollection))
+
+	// API v2
+	mux.HandleFunc("/api/v2/titles/", noCache(handleAPIV2Title))
 
 	port := os.Getenv("PORT")
 	if port == "" {
@@ -2143,6 +2187,160 @@ func handleAPIEpisode(w http.ResponseWriter, r *http.Request) {
 	default:
 		w.WriteHeader(405)
 	}
+}
+
+// API v2 Handlers
+
+func handleAPIV2Title(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "GET" {
+		w.WriteHeader(405)
+		return
+	}
+
+	path := strings.TrimPrefix(r.URL.Path, "/api/v2/titles/")
+	parts := strings.SplitN(path, "/", 2)
+
+	titleID, err := strconv.Atoi(parts[0])
+	if err != nil {
+		jsonError(w, "title not found", 404)
+		return
+	}
+
+	// Delegate /api/v2/titles/:id/episodes
+	if len(parts) >= 2 && parts[1] == "episodes" {
+		handleAPIV2TitleEpisodes(w, r, titleID)
+		return
+	}
+
+	t, err := getTitleByID(titleID)
+	if err != nil {
+		jsonError(w, "title not found", 404)
+		return
+	}
+
+	layer := MCTitleLayer{
+		TitleID:     t.TitleID,
+		Kind:        t.Type,
+		IMDbID:      t.IMDbID,
+		DisplayName: t.DisplayName,
+		PosterURL:   t.ImageURL,
+		StartYear:   t.StartYear,
+		EndYear:     t.EndYear,
+		Genres:      t.Genres,
+		Rating:      t.AverageRating,
+		VoteCount:   t.NumVotes,
+	}
+	if layer.Genres == nil {
+		layer.Genres = []string{}
+	}
+
+	if t.Type == "show" {
+		var showID int
+		err := db.QueryRow(`SELECT id FROM shows WHERE title_id = $1`, titleID).Scan(&showID)
+		if err != nil {
+			jsonError(w, "title not found", 404)
+			return
+		}
+
+		rows, err := db.Query(`
+			SELECT ss.season, COUNT(se.id)
+			FROM show_seasons ss
+			LEFT JOIN show_episodes se ON se.season_id = ss.id
+			WHERE ss.show_id = $1
+			GROUP BY ss.season
+			ORDER BY ss.season
+		`, showID)
+		if err != nil {
+			jsonError(w, "database error", 500)
+			return
+		}
+		defer rows.Close()
+
+		var seasons []MCSeasonInfo
+		totalEpisodes := 0
+		for rows.Next() {
+			var si MCSeasonInfo
+			rows.Scan(&si.SeasonNumber, &si.EpisodeCount)
+			totalEpisodes += si.EpisodeCount
+			seasons = append(seasons, si)
+		}
+
+		isFinished := t.EndYear != nil
+		layer.Show = &MCShowInfo{
+			SeasonCount:  len(seasons),
+			EpisodeCount: totalEpisodes,
+			IsFinished:   isFinished,
+			Seasons:      seasons,
+		}
+		if layer.Show.Seasons == nil {
+			layer.Show.Seasons = []MCSeasonInfo{}
+		}
+	} else {
+		// Movie — expose runtime_minutes, show is null
+		layer.RuntimeMinutes = t.RuntimeMinutes
+	}
+
+	jsonResponse(w, layer)
+}
+
+func handleAPIV2TitleEpisodes(w http.ResponseWriter, r *http.Request, titleID int) {
+	var titleType string
+	err := db.QueryRow(`SELECT type FROM titles WHERE id = $1`, titleID).Scan(&titleType)
+	if err != nil {
+		jsonError(w, "title not found", 404)
+		return
+	}
+
+	if titleType != "show" {
+		jsonError(w, "title is not a show", 400)
+		return
+	}
+
+	seasonStr := r.URL.Query().Get("season")
+	if seasonStr == "" {
+		jsonError(w, "season parameter is required", 400)
+		return
+	}
+	seasonNum, err := strconv.Atoi(seasonStr)
+	if err != nil {
+		jsonError(w, "season not found", 404)
+		return
+	}
+
+	var showID int
+	err = db.QueryRow(`SELECT id FROM shows WHERE title_id = $1`, titleID).Scan(&showID)
+	if err != nil {
+		jsonError(w, "title not found", 404)
+		return
+	}
+
+	var seasonID int
+	err = db.QueryRow(`SELECT id FROM show_seasons WHERE show_id = $1 AND season = $2`, showID, seasonNum).Scan(&seasonID)
+	if err != nil {
+		jsonError(w, "season not found", 404)
+		return
+	}
+
+	rows, err := db.Query(`
+		SELECT episode, display_name, image_url, synopsis, runtime_minutes, TO_CHAR(air_date, 'YYYY-MM-DD')
+		FROM show_episodes
+		WHERE season_id = $1
+		ORDER BY episode
+	`, seasonID)
+	if err != nil {
+		jsonError(w, "database error", 500)
+		return
+	}
+	defer rows.Close()
+
+	episodes := []MCEpisodeLayer{}
+	for rows.Next() {
+		var e MCEpisodeLayer
+		rows.Scan(&e.EpisodeNumber, &e.DisplayName, &e.ImageURL, &e.Synopsis, &e.RuntimeMinutes, &e.AirDate)
+		episodes = append(episodes, e)
+	}
+
+	jsonResponse(w, episodes)
 }
 
 // Helper functions
