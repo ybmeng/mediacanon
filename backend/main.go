@@ -182,8 +182,11 @@ type MCTitleLayer struct {
 	Genres         []string     `json:"genres"`
 	Rating         *float64     `json:"rating"`
 	VoteCount      *int         `json:"vote_count"`
-	RuntimeMinutes *int         `json:"runtime_minutes"`
-	Show           *MCShowInfo  `json:"show"`
+	RuntimeMinutes  *int             `json:"runtime_minutes"`
+	Show            *MCShowInfo      `json:"show"`
+	WatchProviders  *json.RawMessage `json:"watch_providers,omitempty"`
+	Networks        *json.RawMessage `json:"networks,omitempty"`
+	ProductionCompanies *json.RawMessage `json:"production_companies,omitempty"`
 }
 
 type MCShowInfo struct {
@@ -1044,7 +1047,10 @@ func maybeFetchWatchProviders(title *Title) {
 	if tmdbAPIKey == "" || title.TMDBID == nil || *title.TMDBID == 0 {
 		return
 	}
-	if title.WatchProvidersCheckedAt != nil && time.Since(*title.WatchProvidersCheckedAt) < 7*24*time.Hour {
+	watchProvidersStale := title.WatchProvidersCheckedAt == nil || time.Since(*title.WatchProvidersCheckedAt) >= 7*24*time.Hour
+	needsNetworks := title.Networks == nil
+	needsProductionCompanies := title.ProductionCompanies == nil
+	if !watchProvidersStale && !needsNetworks && !needsProductionCompanies {
 		return
 	}
 
@@ -1052,7 +1058,7 @@ func maybeFetchWatchProviders(title *Title) {
 	if title.Type == "show" {
 		mediaType = "tv"
 	}
-	url := fmt.Sprintf("https://api.themoviedb.org/3/%s/%d/watch/providers?api_key=%s", mediaType, *title.TMDBID, tmdbAPIKey)
+	url := fmt.Sprintf("https://api.themoviedb.org/3/%s/%d?api_key=%s&append_to_response=watch/providers", mediaType, *title.TMDBID, tmdbAPIKey)
 	resp, err := http.Get(url)
 	if err != nil {
 		return
@@ -1062,22 +1068,33 @@ func maybeFetchWatchProviders(title *Title) {
 		return
 	}
 
-	var result struct {
-		Results json.RawMessage `json:"results"`
+	var detail struct {
+		Networks            json.RawMessage `json:"networks"`
+		ProductionCompanies json.RawMessage `json:"production_companies"`
+		WatchProviders      struct {
+			Results json.RawMessage `json:"results"`
+		} `json:"watch/providers"`
 	}
-	if json.NewDecoder(resp.Body).Decode(&result) != nil {
+	if json.NewDecoder(resp.Body).Decode(&detail) != nil {
 		return
 	}
 
-	_, err = db.Exec(`UPDATE titles SET watch_providers = $1, watch_providers_checked_at = NOW() WHERE id = $2`,
-		result.Results, title.TitleID)
+	_, err = db.Exec(`UPDATE titles SET watch_providers = $1, watch_providers_checked_at = NOW(),
+		networks = $2, production_companies = $3 WHERE id = $4`,
+		detail.WatchProviders.Results, detail.Networks, detail.ProductionCompanies, title.TitleID)
 	if err != nil {
 		log.Printf("Watch providers update failed for title %d: %v", title.TitleID, err)
 		return
 	}
 
-	if result.Results != nil {
-		title.WatchProviders = &result.Results
+	if detail.WatchProviders.Results != nil {
+		title.WatchProviders = &detail.WatchProviders.Results
+	}
+	if detail.Networks != nil {
+		title.Networks = &detail.Networks
+	}
+	if detail.ProductionCompanies != nil {
+		title.ProductionCompanies = &detail.ProductionCompanies
 	}
 	now := time.Now()
 	title.WatchProvidersCheckedAt = &now
@@ -1763,6 +1780,9 @@ func handleAPITitle(w http.ResponseWriter, r *http.Request) {
 			Rating:      t.AverageRating,
 			VoteCount:   t.NumVotes,
 		}
+		layer.WatchProviders = t.WatchProviders
+		layer.Networks = t.Networks
+		layer.ProductionCompanies = t.ProductionCompanies
 		if layer.Genres == nil {
 			layer.Genres = []string{}
 		}
