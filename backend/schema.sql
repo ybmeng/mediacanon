@@ -15,24 +15,15 @@ CREATE TABLE IF NOT EXISTS titles (
     average_rating REAL,
     original_title VARCHAR(500),
     original_language VARCHAR(10),
-    release_date DATE
-);
-
-CREATE TABLE IF NOT EXISTS movies (
-    id SERIAL PRIMARY KEY,
-    title_id INTEGER NOT NULL UNIQUE REFERENCES titles(id) ON DELETE CASCADE
-);
-
-CREATE TABLE IF NOT EXISTS shows (
-    id SERIAL PRIMARY KEY,
-    title_id INTEGER NOT NULL UNIQUE REFERENCES titles(id) ON DELETE CASCADE
+    release_date DATE,
+    is_series_finished BOOLEAN
 );
 
 CREATE TABLE IF NOT EXISTS show_seasons (
     id SERIAL PRIMARY KEY,
-    show_id INTEGER NOT NULL REFERENCES shows(id) ON DELETE CASCADE,
+    title_id INTEGER NOT NULL REFERENCES titles(id) ON DELETE CASCADE,
     season INTEGER NOT NULL,
-    UNIQUE(show_id, season)
+    UNIQUE(title_id, season)
 );
 
 CREATE TABLE IF NOT EXISTS show_episodes (
@@ -104,7 +95,7 @@ ALTER TABLE titles ADD COLUMN IF NOT EXISTS origin_country VARCHAR(10);
 CREATE INDEX IF NOT EXISTS idx_titles_type ON titles(type);
 CREATE INDEX IF NOT EXISTS idx_titles_display_name ON titles(display_name);
 CREATE INDEX IF NOT EXISTS idx_titles_imdb_id ON titles(imdb_id);
-CREATE INDEX IF NOT EXISTS idx_show_seasons_show ON show_seasons(show_id);
+CREATE INDEX IF NOT EXISTS idx_show_seasons_title ON show_seasons(title_id);
 CREATE INDEX IF NOT EXISTS idx_show_episodes_season ON show_episodes(season_id);
 CREATE INDEX IF NOT EXISTS idx_titles_num_votes ON titles(num_votes);
 CREATE INDEX IF NOT EXISTS idx_title_genres_title ON title_genres(title_id);
@@ -151,3 +142,9 @@ ALTER TABLE titles RENAME COLUMN year TO start_year;
 ALTER TABLE titles ADD COLUMN IF NOT EXISTS end_year INTEGER;
 DROP INDEX IF EXISTS idx_titles_year;
 CREATE INDEX IF NOT EXISTS idx_titles_start_year ON titles(start_year);
+
+-- Streaming service decorator caching (TMDB watch providers, networks, production companies)
+ALTER TABLE titles ADD COLUMN IF NOT EXISTS watch_providers JSONB;
+ALTER TABLE titles ADD COLUMN IF NOT EXISTS watch_providers_checked_at TIMESTAMP;
+ALTER TABLE titles ADD COLUMN IF NOT EXISTS networks JSONB;
+ALTER TABLE titles ADD COLUMN IF NOT EXISTS production_companies JSONB;

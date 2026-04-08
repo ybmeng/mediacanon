@@ -17,7 +17,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"sync"
+	"syscall"
 	"time"
 
 	_ "github.com/lib/pq"
@@ -27,41 +27,20 @@ const (
 	basicsURL   = "https://datasets.imdbws.com/title.basics.tsv.gz"
 	episodesURL = "https://datasets.imdbws.com/title.episode.tsv.gz"
 	ratingsURL  = "https://datasets.imdbws.com/title.ratings.tsv.gz"
+
+	upsertBatchSize = 500 // rows per DB batch operation
 )
 
 var (
-	db            *sql.DB
-	episodeTitles sync.Map // Concurrent map for episode titles
-	batchSize     int
-	workers       int
-	titleGenres   = make(map[string][]string) // imdb_id -> genre names, populated during title scan
-	tmdbAPIKey    string
+	db         *sql.DB
+	batchSize  int // legacy flag, kept for CLI compat but upsertBatchSize used internally
+	workers    int
+	tmdbAPIKey string
 )
 
-// Existing data caches
-type ExistingTitle struct {
-	ID             int
-	Type           string
-	DisplayName    string
-	StartYear      *int
-	EndYear        *int
-	OriginalTitle  string
-	RuntimeMinutes *int
-}
-
-type ExistingEpisode struct {
-	ID          int
-	DisplayName string
-}
-
 type seasonKey struct {
-	showID int
-	season int
-}
-
-type episodeKey struct {
-	seasonID int
-	episode  int
+	titleID int
+	season  int
 }
 
 type TitleRecord struct {
@@ -81,14 +60,6 @@ type RatingRecord struct {
 	AverageRating float64
 }
 
-type EpisodeRecord struct {
-	ImdbID       string
-	ParentImdbID string
-	Season       int
-	Episode      int
-	DisplayName  string
-}
-
 func main() {
 	dsn := flag.String("db", "postgres://localhost/mediacanon?sslmode=disable", "Database URL")
 	downloadDir := flag.String("dir", "./imdb_data", "Directory to store downloaded files")
@@ -97,7 +68,7 @@ func main() {
 	genresImport := flag.String("genres-import", "", "Import genre assignments from reviewed file")
 	genresLimit := flag.Int("genres-limit", 100, "Number of titles to export for genre review")
 	genresFilter := flag.String("genres-filter", "", "Only export titles with these IMDb genres (comma-separated, e.g. 'Reality-TV,Game-Show')")
-	flag.IntVar(&batchSize, "batch", 5000, "Batch size for inserts")
+	flag.IntVar(&batchSize, "batch", 5000, "Batch size for inserts (legacy, internal uses 100)")
 	flag.IntVar(&workers, "workers", 8, "Number of parallel workers")
 	flag.Parse()
 
@@ -153,6 +124,18 @@ func main() {
 	}
 
 	// ── Section 1: IMDb Import ────────────────────────────────────────
+	// Acquire file lock to prevent concurrent sync runs
+	lockFile, err := os.OpenFile("/tmp/sync-imdb.lock", os.O_CREATE|os.O_RDWR, 0600)
+	if err != nil {
+		log.Fatal("open lock file:", err)
+	}
+	defer lockFile.Close()
+	if err := syscall.Flock(int(lockFile.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
+		log.Fatal("Another sync-imdb process is running. Exiting.")
+	}
+	defer syscall.Flock(int(lockFile.Fd()), syscall.LOCK_UN)
+	log.Println("File lock acquired (no other sync running)")
+
 	os.MkdirAll(*downloadDir, 0755)
 
 	basicsFile := *downloadDir + "/title.basics.tsv.gz"
@@ -193,22 +176,30 @@ func main() {
 			log.Printf("Files changed (%s… → %s…), importing...", previousHash[:12], currentHash[:12])
 		}
 
-		log.Println("[1.3] Syncing titles...")
+		log.Println("[1.2.1] Creating genres staging table...")
+		if err := createGenresStagingTable(); err != nil {
+			log.Fatal(err)
+		}
+
+		log.Println("[1.3] Syncing titles (streaming)...")
 		if err := syncTitles(basicsFile); err != nil {
 			log.Fatal(err)
 		}
 
-		log.Println("[1.4] Syncing genres...")
+		log.Println("[1.4] Syncing genres (from staging)...")
 		if err := syncGenres(); err != nil {
 			log.Fatal(err)
 		}
 
-		log.Println("[1.5] Syncing episodes...")
-		if err := syncEpisodes(episodesFile); err != nil {
+		// Drop genres staging table (no longer needed)
+		db.Exec(`DROP TABLE IF EXISTS _title_genres_staging`)
+
+		log.Println("[1.5] Syncing episodes (streaming, merge-join with basics)...")
+		if err := syncEpisodes(episodesFile, basicsFile); err != nil {
 			log.Fatal(err)
 		}
 
-		log.Println("[1.6] Syncing ratings...")
+		log.Println("[1.6] Syncing ratings (streaming)...")
 		if err := syncRatings(ratingsFile); err != nil {
 			log.Fatal(err)
 		}
@@ -228,6 +219,27 @@ func main() {
 	}
 
 	log.Printf("All done in %v", time.Since(start))
+}
+
+// createGenresStagingTable creates a staging table for genres (small, ~3M rows).
+// Episode titles no longer use staging — they use merge-join on sorted TSV files.
+func createGenresStagingTable() error {
+	_, err := db.Exec(`DROP TABLE IF EXISTS _title_genres_staging`)
+	if err != nil {
+		return fmt.Errorf("drop old _title_genres_staging: %w", err)
+	}
+	_, err = db.Exec(`CREATE UNLOGGED TABLE _title_genres_staging (
+		imdb_id TEXT NOT NULL,
+		genre_name TEXT NOT NULL
+	)`)
+	if err != nil {
+		return fmt.Errorf("create _title_genres_staging: %w", err)
+	}
+	_, err = db.Exec(`CREATE INDEX IF NOT EXISTS idx_tgs_imdb ON _title_genres_staging(imdb_id)`)
+	if err != nil {
+		return fmt.Errorf("create index on _title_genres_staging: %w", err)
+	}
+	return nil
 }
 
 // hashFiles computes a single SHA-256 over the contents of all files (sorted by name for stability).
@@ -319,50 +331,10 @@ func downloadFile(url, dest string) error {
 	return nil
 }
 
+// syncTitles streams the basics TSV, UPSERTs titles in batches of 100,
+// and writes episode titles + genre associations to staging tables.
+// No large in-memory maps. ~O(batch_size) memory.
 func syncTitles(filepath string) error {
-	// Load existing titles from DB
-	log.Println("Loading existing titles from database...")
-	existingTitles := make(map[string]ExistingTitle)
-	rows, err := db.Query(`SELECT id, imdb_id, type, display_name, start_year, end_year, COALESCE(original_title, ''), runtime_minutes FROM titles`)
-	if err != nil {
-		return err
-	}
-	for rows.Next() {
-		var t ExistingTitle
-		var imdbID string
-		rows.Scan(&t.ID, &imdbID, &t.Type, &t.DisplayName, &t.StartYear, &t.EndYear, &t.OriginalTitle, &t.RuntimeMinutes)
-		existingTitles[imdbID] = t
-	}
-	rows.Close()
-	log.Printf("Loaded %d existing titles", len(existingTitles))
-
-	// Load existing movies and shows
-	existingMovies := make(map[int]bool)
-	rows, err = db.Query(`SELECT title_id FROM movies`)
-	if err != nil {
-		return err
-	}
-	for rows.Next() {
-		var id int
-		rows.Scan(&id)
-		existingMovies[id] = true
-	}
-	rows.Close()
-
-	existingShows := make(map[int]bool)
-	rows, err = db.Query(`SELECT title_id FROM shows`)
-	if err != nil {
-		return err
-	}
-	for rows.Next() {
-		var id int
-		rows.Scan(&id)
-		existingShows[id] = true
-	}
-	rows.Close()
-	log.Printf("Loaded %d existing movies, %d existing shows", len(existingMovies), len(existingShows))
-
-	// Read file and diff
 	f, err := os.Open(filepath)
 	if err != nil {
 		return err
@@ -379,11 +351,18 @@ func syncTitles(filepath string) error {
 	scanner.Buffer(make([]byte, 1024*1024), 1024*1024)
 	scanner.Scan() // Skip header
 
-	var toInsert []TitleRecord
-	var toUpdate []TitleRecord
-	var newMovieTitleIDs, newShowTitleIDs []int
-
-	var scanned, unchanged, ignored, episodeCount int64
+	var (
+		titleBatch    []TitleRecord
+		genreBatch    []struct{ imdbID, genre string }
+		scanned       int64
+		inserted      int64
+		updated       int64
+		unchanged     int64
+		ignored       int64
+		batchNum      int64
+		totalBatches  int64 = 12600 // ~1.26M titles / 500
+		genreBatchNum int64
+	)
 
 	for scanner.Scan() {
 		line := scanner.Text()
@@ -398,10 +377,8 @@ func syncTitles(filepath string) error {
 		originalTitle := fields[3]
 		yearStr := fields[5]
 
-		// Collect episode titles for later
+		// Skip episodes — handled in syncEpisodes via merge-join
 		if titleType == "tvEpisode" {
-			episodeTitles.Store(imdbID, displayName)
-			episodeCount++
 			continue
 		}
 
@@ -432,7 +409,6 @@ func syncTitles(filepath string) error {
 			}
 		}
 
-		// Parse runtime (fields[7])
 		var runtimeMinutes *int
 		if fields[7] != "\\N" {
 			if rt, err := strconv.Atoi(fields[7]); err == nil {
@@ -440,15 +416,24 @@ func syncTitles(filepath string) error {
 			}
 		}
 
-		// Parse genres (fields[8], comma-separated)
-		var genres []string
+		// Parse genres → staging table (replaces titleGenres map)
 		if fields[8] != "\\N" {
-			genres = strings.Split(fields[8], ",")
+			genres := strings.Split(fields[8], ",")
+			for _, g := range genres {
+				genreBatch = append(genreBatch, struct{ imdbID, genre string }{imdbID, g})
+			}
+			if len(genreBatch) >= upsertBatchSize {
+				if err := flushGenresStaging(genreBatch); err != nil {
+					return err
+				}
+				genreBatchNum++
+				genreBatch = genreBatch[:0]
+			}
 		}
 
 		scanned++
 
-		record := TitleRecord{
+		titleBatch = append(titleBatch, TitleRecord{
 			ImdbID:         imdbID,
 			Type:           ourType,
 			DisplayName:    displayName,
@@ -456,326 +441,202 @@ func syncTitles(filepath string) error {
 			EndYear:        endYear,
 			OriginalTitle:  originalTitle,
 			RuntimeMinutes: runtimeMinutes,
-			Genres:         genres,
-		}
+		})
 
-		// Store genres for later sync
-		if len(genres) > 0 {
-			titleGenres[imdbID] = genres
-		}
-
-		// Check if exists and needs update
-		if existing, ok := existingTitles[imdbID]; ok {
-			needsUpdate := existing.DisplayName != displayName ||
-				!intsEqual(existing.StartYear, startYear) ||
-				!intsEqual(existing.EndYear, endYear) ||
-				existing.OriginalTitle != originalTitle ||
-				!intsEqual(existing.RuntimeMinutes, runtimeMinutes)
-
-			if needsUpdate {
-				toUpdate = append(toUpdate, record)
-			} else {
-				unchanged++
+		if len(titleBatch) >= upsertBatchSize {
+			ins, upd, unch, err := upsertTitleBatch(titleBatch)
+			if err != nil {
+				return err
 			}
+			inserted += ins
+			updated += upd
+			unchanged += unch
+			titleBatch = titleBatch[:0]
+			batchNum++
 
-			// Check if movie/show record exists
-			if ourType == "movie" && !existingMovies[existing.ID] {
-				newMovieTitleIDs = append(newMovieTitleIDs, existing.ID)
-			} else if ourType == "show" && !existingShows[existing.ID] {
-				newShowTitleIDs = append(newShowTitleIDs, existing.ID)
+			if batchNum%150 == 0 {
+				log.Printf("[titles] %d/%d batches (%d rows) | %d inserted, %d updated, %d unchanged",
+					batchNum, totalBatches, scanned, inserted, updated, unchanged)
 			}
-		} else {
-			toInsert = append(toInsert, record)
-		}
-
-		if scanned%100000 == 0 {
-			log.Printf("Scanned %d titles: %d unchanged, %d to insert, %d to update, %d ignored, %d episode titles...",
-				scanned, unchanged, len(toInsert), len(toUpdate), ignored, episodeCount)
 		}
 	}
 
-	log.Printf("Scan complete: %d movies/shows (%d to insert, %d to update, %d unchanged), %d ignored (shorts/games/etc), %d episode titles",
-		scanned, len(toInsert), len(toUpdate), unchanged, ignored, episodeCount)
-
-	// Insert new titles in parallel batches
-	if len(toInsert) > 0 {
-		log.Printf("Inserting %d new titles...", len(toInsert))
-		newIDs, err := insertTitlesBatched(toInsert)
+	// Flush remaining batches
+	if len(titleBatch) > 0 {
+		ins, upd, unch, err := upsertTitleBatch(titleBatch)
 		if err != nil {
 			return err
 		}
-
-		// Collect new movie/show IDs
-		for i, r := range toInsert {
-			if r.Type == "movie" {
-				newMovieTitleIDs = append(newMovieTitleIDs, newIDs[i])
-			} else {
-				newShowTitleIDs = append(newShowTitleIDs, newIDs[i])
-			}
-		}
+		inserted += ins
+		updated += upd
+		unchanged += unch
+		batchNum++
 	}
-
-	// Update changed titles
-	if len(toUpdate) > 0 {
-		log.Printf("Updating %d changed titles...", len(toUpdate))
-		if err := updateTitlesBatched(toUpdate); err != nil {
+	if len(genreBatch) > 0 {
+		if err := flushGenresStaging(genreBatch); err != nil {
 			return err
 		}
 	}
 
-	// Insert new movie/show records
-	if len(newMovieTitleIDs) > 0 {
-		log.Printf("Inserting %d new movie records...", len(newMovieTitleIDs))
-		if err := insertMoviesBatched(newMovieTitleIDs); err != nil {
-			return err
-		}
-	}
-
-	if len(newShowTitleIDs) > 0 {
-		log.Printf("Inserting %d new show records...", len(newShowTitleIDs))
-		if err := insertShowsBatched(newShowTitleIDs); err != nil {
-			return err
-		}
-	}
-
-	log.Printf("Titles done: %d inserted, %d updated, %d unchanged, %d ignored",
-		len(toInsert), len(toUpdate), unchanged, ignored)
+	log.Printf("[titles] complete: %d batches, %d rows | %d inserted, %d updated, %d unchanged, %d ignored",
+		batchNum, scanned, inserted, updated, unchanged, ignored)
 
 	return scanner.Err()
 }
 
-func intsEqual(a, b *int) bool {
-	if a == nil && b == nil {
-		return true
-	}
-	if a == nil || b == nil {
-		return false
-	}
-	return *a == *b
-}
-
-func insertTitlesBatched(records []TitleRecord) ([]int, error) {
-	ids := make([]int, len(records))
-	idIdx := 0
-
-	for i := 0; i < len(records); i += batchSize {
-		end := i + batchSize
-		if end > len(records) {
-			end = len(records)
-		}
-		batch := records[i:end]
-
-		values := make([]string, len(batch))
-		args := make([]any, len(batch)*7)
-		for j, r := range batch {
-			base := j * 7
-			values[j] = fmt.Sprintf("($%d, $%d, $%d, $%d, $%d, $%d, $%d)", base+1, base+2, base+3, base+4, base+5, base+6, base+7)
-			args[base] = r.ImdbID
-			args[base+1] = r.Type
-			args[base+2] = r.DisplayName
-			args[base+3] = r.StartYear
-			args[base+4] = r.EndYear
-			args[base+5] = r.OriginalTitle
-			args[base+6] = r.RuntimeMinutes
-		}
-
-		rows, err := db.Query(fmt.Sprintf(`
-			INSERT INTO titles (imdb_id, type, display_name, start_year, end_year, original_title, runtime_minutes)
-			VALUES %s
-			RETURNING id
-		`, strings.Join(values, ",")), args...)
-		if err != nil {
-			return nil, fmt.Errorf("title insert: %w", err)
-		}
-
-		for rows.Next() {
-			rows.Scan(&ids[idIdx])
-			idIdx++
-		}
-		rows.Close()
-
-		if (i/batchSize+1)%20 == 0 || end >= len(records) {
-			log.Printf("  inserted %d/%d titles...", end, len(records))
-		}
+// upsertTitleBatch UPSERTs a batch of titles.
+// Returns (inserted, updated, unchanged) counts.
+func upsertTitleBatch(batch []TitleRecord) (int64, int64, int64, error) {
+	if len(batch) == 0 {
+		return 0, 0, 0, nil
 	}
 
-	return ids, nil
-}
-
-func updateTitlesBatched(records []TitleRecord) error {
-	for i := 0; i < len(records); i += batchSize {
-		end := i + batchSize
-		if end > len(records) {
-			end = len(records)
-		}
-		batch := records[i:end]
-
-		// Use a single UPDATE with CASE statements for efficiency
-		var imdbIDs []string
-		displayNames := make(map[string]string)
-		startYears := make(map[string]*int)
-		endYears := make(map[string]*int)
-		originalTitles := make(map[string]string)
-		runtimes := make(map[string]*int)
-
-		for _, r := range batch {
-			imdbIDs = append(imdbIDs, r.ImdbID)
-			displayNames[r.ImdbID] = r.DisplayName
-			startYears[r.ImdbID] = r.StartYear
-			endYears[r.ImdbID] = r.EndYear
-			originalTitles[r.ImdbID] = r.OriginalTitle
-			runtimes[r.ImdbID] = r.RuntimeMinutes
-		}
-
-		// Build UPDATE query
-		args := make([]any, 0, len(batch)*6)
-		displayCases := make([]string, len(batch))
-		startYearCases := make([]string, len(batch))
-		endYearCases := make([]string, len(batch))
-		origTitleCases := make([]string, len(batch))
-		runtimeCases := make([]string, len(batch))
-		idPlaceholders := make([]string, len(batch))
-
-		for j, id := range imdbIDs {
-			base := j * 6
-			idPlaceholders[j] = fmt.Sprintf("$%d", base+1)
-			displayCases[j] = fmt.Sprintf("WHEN imdb_id = $%d THEN $%d", base+1, base+2)
-			startYearCases[j] = fmt.Sprintf("WHEN imdb_id = $%d THEN $%d::integer", base+1, base+3)
-			endYearCases[j] = fmt.Sprintf("WHEN imdb_id = $%d THEN $%d::integer", base+1, base+4)
-			origTitleCases[j] = fmt.Sprintf("WHEN imdb_id = $%d THEN $%d", base+1, base+5)
-			runtimeCases[j] = fmt.Sprintf("WHEN imdb_id = $%d THEN $%d::integer", base+1, base+6)
-			args = append(args, id, displayNames[id], startYears[id], endYears[id], originalTitles[id], runtimes[id])
-		}
-
-		_, err := db.Exec(fmt.Sprintf(`
-			UPDATE titles SET
-				display_name = CASE %s END,
-				start_year = CASE %s END,
-				end_year = CASE %s END,
-				original_title = CASE %s END,
-				runtime_minutes = CASE %s END,
-				updated_at = NOW()
-			WHERE imdb_id IN (%s)
-		`, strings.Join(displayCases, " "), strings.Join(startYearCases, " "), strings.Join(endYearCases, " "), strings.Join(origTitleCases, " "), strings.Join(runtimeCases, " "), strings.Join(idPlaceholders, ",")), args...)
-		if err != nil {
-			return fmt.Errorf("title update: %w", err)
-		}
-
-		if (i/batchSize+1)%20 == 0 || end >= len(records) {
-			log.Printf("  updated %d/%d titles...", end, len(records))
-		}
-	}
-	return nil
-}
-
-func insertMoviesBatched(titleIDs []int) error {
-	for i := 0; i < len(titleIDs); i += batchSize {
-		end := i + batchSize
-		if end > len(titleIDs) {
-			end = len(titleIDs)
-		}
-		batch := titleIDs[i:end]
-
-		values := make([]string, len(batch))
-		args := make([]any, len(batch))
-		for j, id := range batch {
-			values[j] = fmt.Sprintf("($%d)", j+1)
-			args[j] = id
-		}
-
-		_, err := db.Exec(fmt.Sprintf(`
-			INSERT INTO movies (title_id) VALUES %s
-			ON CONFLICT (title_id) DO NOTHING
-		`, strings.Join(values, ",")), args...)
-		if err != nil {
-			return fmt.Errorf("movie insert: %w", err)
-		}
-	}
-	return nil
-}
-
-func insertShowsBatched(titleIDs []int) error {
-	for i := 0; i < len(titleIDs); i += batchSize {
-		end := i + batchSize
-		if end > len(titleIDs) {
-			end = len(titleIDs)
-		}
-		batch := titleIDs[i:end]
-
-		values := make([]string, len(batch))
-		args := make([]any, len(batch))
-		for j, id := range batch {
-			values[j] = fmt.Sprintf("($%d)", j+1)
-			args[j] = id
-		}
-
-		_, err := db.Exec(fmt.Sprintf(`
-			INSERT INTO shows (title_id) VALUES %s
-			ON CONFLICT (title_id) DO NOTHING
-		`, strings.Join(values, ",")), args...)
-		if err != nil {
-			return fmt.Errorf("show insert: %w", err)
-		}
-	}
-	return nil
-}
-
-func syncGenres() error {
-	if len(titleGenres) == 0 {
-		log.Println("No genre data collected, skipping genre sync")
-		return nil
+	// Build UPSERT with RETURNING to know which were inserted vs updated
+	values := make([]string, len(batch))
+	args := make([]any, len(batch)*7)
+	for j, r := range batch {
+		base := j * 7
+		values[j] = fmt.Sprintf("($%d, $%d, $%d, $%d, $%d, $%d, $%d)",
+			base+1, base+2, base+3, base+4, base+5, base+6, base+7)
+		args[base] = r.ImdbID
+		args[base+1] = r.Type
+		args[base+2] = r.DisplayName
+		args[base+3] = r.StartYear
+		args[base+4] = r.EndYear
+		args[base+5] = r.OriginalTitle
+		args[base+6] = r.RuntimeMinutes
 	}
 
-	// Collect all unique genre names
-	genreSet := make(map[string]bool)
-	for _, genres := range titleGenres {
-		for _, g := range genres {
-			genreSet[g] = true
-		}
-	}
-	log.Printf("Found %d unique genres across %d titles", len(genreSet), len(titleGenres))
+	// UPSERT: INSERT ... ON CONFLICT DO UPDATE ... WHERE something IS DISTINCT FROM
+	// RETURNING id, type, (xmax = 0) as was_inserted
+	// xmax = 0 means the row was freshly inserted (no previous version)
+	query := fmt.Sprintf(`
+		INSERT INTO titles (imdb_id, type, display_name, start_year, end_year, original_title, runtime_minutes)
+		VALUES %s
+		ON CONFLICT (imdb_id) DO UPDATE SET
+			display_name = EXCLUDED.display_name,
+			start_year = EXCLUDED.start_year,
+			end_year = EXCLUDED.end_year,
+			original_title = EXCLUDED.original_title,
+			runtime_minutes = EXCLUDED.runtime_minutes,
+			updated_at = NOW()
+		WHERE titles.display_name IS DISTINCT FROM EXCLUDED.display_name
+			OR titles.start_year IS DISTINCT FROM EXCLUDED.start_year
+			OR titles.end_year IS DISTINCT FROM EXCLUDED.end_year
+			OR titles.original_title IS DISTINCT FROM EXCLUDED.original_title
+			OR titles.runtime_minutes IS DISTINCT FROM EXCLUDED.runtime_minutes
+		RETURNING id, type, (xmax = 0) as was_inserted
+	`, strings.Join(values, ","))
 
-	// Insert genres (ON CONFLICT DO NOTHING)
-	genreNames := make([]string, 0, len(genreSet))
-	for g := range genreSet {
-		genreNames = append(genreNames, g)
-	}
-	for i := 0; i < len(genreNames); i += batchSize {
-		end := i + batchSize
-		if end > len(genreNames) {
-			end = len(genreNames)
-		}
-		batch := genreNames[i:end]
-		values := make([]string, len(batch))
-		args := make([]any, len(batch))
-		for j, name := range batch {
-			values[j] = fmt.Sprintf("($%d)", j+1)
-			args[j] = name
-		}
-		_, err := db.Exec(fmt.Sprintf(`INSERT INTO genres (name) VALUES %s ON CONFLICT (name) DO NOTHING`, strings.Join(values, ",")), args...)
-		if err != nil {
-			return fmt.Errorf("genre insert: %w", err)
-		}
-	}
-
-	// Load genre ID cache
-	genreIDCache := make(map[string]int)
-	rows, err := db.Query(`SELECT id, name FROM genres`)
+	rows, err := db.Query(query, args...)
 	if err != nil {
-		return err
+		return 0, 0, 0, fmt.Errorf("title upsert: %w", err)
 	}
+
+	// Collect returned IDs (only inserted or updated rows are returned)
+	var insertCount, updateCount int64
+
 	for rows.Next() {
 		var id int
-		var name string
-		rows.Scan(&id, &name)
-		genreIDCache[name] = id
+		var titleType string
+		var wasInserted bool
+		if err := rows.Scan(&id, &titleType, &wasInserted); err != nil {
+			rows.Close()
+			return 0, 0, 0, fmt.Errorf("title upsert scan: %w", err)
+		}
+		if wasInserted {
+			insertCount++
+		} else {
+			updateCount++
+		}
 	}
 	rows.Close()
-	log.Printf("Loaded %d genres from database", len(genreIDCache))
 
-	// Load imdb_id -> title_id cache
-	imdbToTitleID := make(map[string]int)
-	rows, err = db.Query(`SELECT imdb_id, id FROM titles WHERE imdb_id IS NOT NULL`)
+	unchangedCount := int64(len(batch)) - insertCount - updateCount
+
+	return insertCount, updateCount, unchangedCount, nil
+}
+
+// flushGenresStaging batch-inserts genre associations to the staging table
+func flushGenresStaging(batch []struct{ imdbID, genre string }) error {
+	if len(batch) == 0 {
+		return nil
+	}
+	values := make([]string, len(batch))
+	args := make([]any, len(batch)*2)
+	for j, g := range batch {
+		base := j * 2
+		values[j] = fmt.Sprintf("($%d, $%d)", base+1, base+2)
+		args[base] = g.imdbID
+		args[base+1] = g.genre
+	}
+	_, err := db.Exec(fmt.Sprintf(`
+		INSERT INTO _title_genres_staging (imdb_id, genre_name)
+		VALUES %s
+	`, strings.Join(values, ",")), args...)
+	if err != nil {
+		return fmt.Errorf("genre staging insert: %w", err)
+	}
+	return nil
+}
+
+// syncGenres reads from _title_genres_staging and bulk-inserts into genres + title_genres.
+// No in-memory maps needed.
+func syncGenres() error {
+	// Check if staging has data
+	var stagingCount int
+	db.QueryRow(`SELECT COUNT(*) FROM _title_genres_staging`).Scan(&stagingCount)
+	if stagingCount == 0 {
+		log.Println("No genre data in staging, skipping genre sync")
+		return nil
+	}
+	log.Printf("[genres] %d genre associations in staging", stagingCount)
+
+	// Step 1: Insert all unique genre names from staging
+	_, err := db.Exec(`
+		INSERT INTO genres (name)
+		SELECT DISTINCT genre_name FROM _title_genres_staging
+		ON CONFLICT (name) DO NOTHING
+	`)
+	if err != nil {
+		return fmt.Errorf("genre name insert: %w", err)
+	}
+
+	var genreCount int
+	db.QueryRow(`SELECT COUNT(*) FROM genres`).Scan(&genreCount)
+	log.Printf("[genres] %d genres in database", genreCount)
+
+	// Step 2: Bulk-insert title_genres by joining staging with titles and genres
+	result, err := db.Exec(`
+		INSERT INTO title_genres (title_id, genre_id)
+		SELECT t.id, g.id
+		FROM _title_genres_staging s
+		JOIN titles t ON t.imdb_id = s.imdb_id
+		JOIN genres g ON g.name = s.genre_name
+		ON CONFLICT DO NOTHING
+	`)
+	if err != nil {
+		return fmt.Errorf("title_genres insert from staging: %w", err)
+	}
+
+	rowsAffected, _ := result.RowsAffected()
+	log.Printf("[genres] complete: %d new title_genre associations inserted", rowsAffected)
+
+	return nil
+}
+
+type episodeReady struct {
+	seasonID    int
+	episode     int
+	displayName string
+}
+
+// syncEpisodes streams the episode TSV and merge-joins with the basics TSV
+// (both sorted by tconst) to get display names without staging tables.
+func syncEpisodes(filepath string, basicsFile string) error {
+	// Build show imdb_id -> title_id cache (small: ~250K shows max)
+	showCache := make(map[string]int)
+	rows, err := db.Query(`SELECT imdb_id, id FROM titles WHERE type = 'show' AND imdb_id IS NOT NULL`)
 	if err != nil {
 		return err
 	}
@@ -783,128 +644,27 @@ func syncGenres() error {
 		var imdbID string
 		var titleID int
 		rows.Scan(&imdbID, &titleID)
-		imdbToTitleID[imdbID] = titleID
+		showCache[imdbID] = titleID
 	}
 	rows.Close()
-	log.Printf("Loaded %d imdb->title mappings", len(imdbToTitleID))
+	log.Printf("[episodes] loaded %d shows into cache", len(showCache))
 
-	// Load existing title_genres
-	existingTG := make(map[[2]int]bool)
-	rows, err = db.Query(`SELECT title_id, genre_id FROM title_genres`)
-	if err != nil {
-		return err
-	}
-	for rows.Next() {
-		var titleID, genreID int
-		rows.Scan(&titleID, &genreID)
-		existingTG[[2]int{titleID, genreID}] = true
-	}
-	rows.Close()
-	log.Printf("Loaded %d existing title_genre associations", len(existingTG))
-
-	// Collect new associations
-	type tgPair struct {
-		titleID int
-		genreID int
-	}
-	var toInsert []tgPair
-	for imdbID, genres := range titleGenres {
-		titleID, ok := imdbToTitleID[imdbID]
-		if !ok {
-			continue
-		}
-		for _, g := range genres {
-			genreID, ok := genreIDCache[g]
-			if !ok {
-				continue
-			}
-			if !existingTG[[2]int{titleID, genreID}] {
-				toInsert = append(toInsert, tgPair{titleID, genreID})
-			}
-		}
-	}
-	log.Printf("Found %d new title_genre associations to insert", len(toInsert))
-
-	// Batch insert
-	for i := 0; i < len(toInsert); i += batchSize {
-		end := i + batchSize
-		if end > len(toInsert) {
-			end = len(toInsert)
-		}
-		batch := toInsert[i:end]
-		values := make([]string, len(batch))
-		args := make([]any, len(batch)*2)
-		for j, pair := range batch {
-			base := j * 2
-			values[j] = fmt.Sprintf("($%d, $%d)", base+1, base+2)
-			args[base] = pair.titleID
-			args[base+1] = pair.genreID
-		}
-		_, err := db.Exec(fmt.Sprintf(`INSERT INTO title_genres (title_id, genre_id) VALUES %s ON CONFLICT DO NOTHING`, strings.Join(values, ",")), args...)
-		if err != nil {
-			return fmt.Errorf("title_genre insert: %w", err)
-		}
-		if (i/batchSize+1)%20 == 0 || end >= len(toInsert) {
-			log.Printf("  inserted %d/%d genre associations...", end, len(toInsert))
-		}
-	}
-
-	log.Printf("Genre sync complete: %d genres, %d new associations", len(genreIDCache), len(toInsert))
-	return nil
-}
-
-func syncEpisodes(filepath string) error {
-	// Build show imdb_id -> show_id cache
-	showCache := make(map[string]int)
-	rows, err := db.Query(`SELECT t.imdb_id, s.id FROM shows s JOIN titles t ON s.title_id = t.id`)
-	if err != nil {
-		return err
-	}
-	for rows.Next() {
-		var imdbID string
-		var showID int
-		rows.Scan(&imdbID, &showID)
-		showCache[imdbID] = showID
-	}
-	rows.Close()
-	log.Printf("Loaded %d shows into cache", len(showCache))
-
-	// Load existing seasons
-	log.Println("Loading existing seasons...")
+	// Load existing seasons (small: ~100K)
 	existingSeasons := make(map[seasonKey]int)
-	rows, err = db.Query(`SELECT id, show_id, season FROM show_seasons`)
+	rows, err = db.Query(`SELECT id, title_id, season FROM show_seasons`)
 	if err != nil {
 		return err
 	}
 	for rows.Next() {
-		var id, showID, season int
-		rows.Scan(&id, &showID, &season)
-		existingSeasons[seasonKey{showID, season}] = id
+		var id, titleID, season int
+		rows.Scan(&id, &titleID, &season)
+		existingSeasons[seasonKey{titleID, season}] = id
 	}
 	rows.Close()
-	log.Printf("Loaded %d existing seasons", len(existingSeasons))
-
-	// Load existing episodes
-	log.Println("Loading existing episodes...")
-	existingEpisodes := make(map[episodeKey]ExistingEpisode)
-	rows, err = db.Query(`SELECT id, season_id, episode, display_name FROM show_episodes`)
-	if err != nil {
-		return err
-	}
-	for rows.Next() {
-		var id, seasonID, episode int
-		var displayName sql.NullString
-		rows.Scan(&id, &seasonID, &episode, &displayName)
-		existingEpisodes[episodeKey{seasonID, episode}] = ExistingEpisode{
-			ID:          id,
-			DisplayName: displayName.String,
-		}
-	}
-	rows.Close()
-	log.Printf("Loaded %d existing episodes", len(existingEpisodes))
+	log.Printf("[episodes] loaded %d existing seasons", len(existingSeasons))
 
 	// First pass: collect seasons to insert
-	log.Println("Scanning for new seasons...")
+	log.Println("[episodes] scanning for new seasons...")
 	seasonsToInsert := make(map[seasonKey]bool)
 
 	f, err := os.Open(filepath)
@@ -938,12 +698,12 @@ func syncEpisodes(filepath string) error {
 			continue
 		}
 
-		showID, ok := showCache[parentImdbID]
+		titleID, ok := showCache[parentImdbID]
 		if !ok {
 			continue
 		}
 
-		key := seasonKey{showID, season}
+		key := seasonKey{titleID, season}
 		if _, exists := existingSeasons[key]; !exists {
 			seasonsToInsert[key] = true
 		}
@@ -953,14 +713,14 @@ func syncEpisodes(filepath string) error {
 
 	// Insert new seasons
 	if len(seasonsToInsert) > 0 {
-		log.Printf("Inserting %d new seasons...", len(seasonsToInsert))
+		log.Printf("[episodes] inserting %d new seasons...", len(seasonsToInsert))
 		seasonList := make([]seasonKey, 0, len(seasonsToInsert))
 		for k := range seasonsToInsert {
 			seasonList = append(seasonList, k)
 		}
 
-		for i := 0; i < len(seasonList); i += batchSize {
-			end := i + batchSize
+		for i := 0; i < len(seasonList); i += upsertBatchSize {
+			end := i + upsertBatchSize
 			if end > len(seasonList) {
 				end = len(seasonList)
 			}
@@ -970,35 +730,34 @@ func syncEpisodes(filepath string) error {
 			args := make([]any, len(batch)*2)
 			for j, k := range batch {
 				values[j] = fmt.Sprintf("($%d, $%d)", j*2+1, j*2+2)
-				args[j*2] = k.showID
+				args[j*2] = k.titleID
 				args[j*2+1] = k.season
 			}
 
 			rows, err := db.Query(fmt.Sprintf(`
-				INSERT INTO show_seasons (show_id, season)
+				INSERT INTO show_seasons (title_id, season)
 				VALUES %s
-				RETURNING id, show_id, season
+				ON CONFLICT (title_id, season) DO NOTHING
+				RETURNING id, title_id, season
 			`, strings.Join(values, ",")), args...)
 			if err != nil {
 				return fmt.Errorf("season insert: %w", err)
 			}
 
 			for rows.Next() {
-				var id, showID, season int
-				rows.Scan(&id, &showID, &season)
-				existingSeasons[seasonKey{showID, season}] = id
+				var id, titleID, season int
+				rows.Scan(&id, &titleID, &season)
+				existingSeasons[seasonKey{titleID, season}] = id
 			}
 			rows.Close()
-
-			if (i/batchSize+1)%20 == 0 || end >= len(seasonList) {
-				log.Printf("  inserted %d/%d seasons...", end, len(seasonList))
-			}
 		}
+		log.Printf("[episodes] seasons inserted, total seasons: %d", len(existingSeasons))
 	}
 
-	// Second pass: collect episodes to insert/update
-	log.Println("Scanning for episode changes...")
+	// Second pass: stream episodes, merge-join with basics file for display names
+	log.Println("[episodes] streaming episode upserts (merge-join with basics)...")
 
+	// Open episodes file
 	f, err = os.Open(filepath)
 	if err != nil {
 		return err
@@ -1011,27 +770,68 @@ func syncEpisodes(filepath string) error {
 	}
 	defer gz.Close()
 
-	scanner = bufio.NewScanner(gz)
-	scanner.Buffer(make([]byte, 1024*1024), 1024*1024)
-	scanner.Scan() // Skip header
+	epScanner := bufio.NewScanner(gz)
+	epScanner.Buffer(make([]byte, 1024*1024), 1024*1024)
+	epScanner.Scan() // Skip header
 
-	type EpisodeInsert struct {
-		SeasonID    int
-		Episode     int
-		DisplayName *string
+	// Open basics file for merge-join (sorted by tconst)
+	bf, err := os.Open(basicsFile)
+	if err != nil {
+		return err
 	}
-	type EpisodeUpdate struct {
-		ID          int
-		DisplayName string
+	defer bf.Close()
+
+	bgz, err := gzip.NewReader(bf)
+	if err != nil {
+		return err
+	}
+	defer bgz.Close()
+
+	basicsScanner := bufio.NewScanner(bgz)
+	basicsScanner.Buffer(make([]byte, 1024*1024), 1024*1024)
+	basicsScanner.Scan() // Skip header
+
+	// Basics file cursor state for merge-join
+	var basicsCurID, basicsCurName string
+	var basicsEOF bool
+	advanceBasics := func() {
+		for basicsScanner.Scan() {
+			bfields := strings.Split(basicsScanner.Text(), "\t")
+			if len(bfields) >= 3 && bfields[1] == "tvEpisode" {
+				basicsCurID = bfields[0]
+				basicsCurName = bfields[2]
+				return
+			}
+		}
+		basicsEOF = true
+	}
+	advanceBasics() // position at first tvEpisode
+
+	// lookupDisplayName advances the basics cursor to find the display name
+	// for a given episode IMDb ID. Works because both files are sorted by tconst.
+	lookupDisplayName := func(imdbID string) string {
+		for !basicsEOF && basicsCurID < imdbID {
+			advanceBasics()
+		}
+		if !basicsEOF && basicsCurID == imdbID {
+			return basicsCurName
+		}
+		return ""
 	}
 
-	var toInsert []EpisodeInsert
-	var toUpdate []EpisodeUpdate
-	var scanned, unchanged, skipped int64
+	var (
+		pendingBatch []episodeReady
+		scanned      int64
+		inserted     int64
+		updated      int64
+		unchangedEp  int64
+		skipped      int64
+		batchNum     int64
+		totalBatches int64 = 14600 // ~7.3M episodes / 500
+	)
 
-	for scanner.Scan() {
-		line := scanner.Text()
-		fields := strings.Split(line, "\t")
+	for epScanner.Scan() {
+		fields := strings.Split(epScanner.Text(), "\t")
 		if len(fields) < 4 {
 			continue
 		}
@@ -1055,156 +855,115 @@ func syncEpisodes(filepath string) error {
 			continue
 		}
 
-		showID, ok := showCache[parentImdbID]
+		titleID, ok := showCache[parentImdbID]
 		if !ok {
 			continue
 		}
 
-		seasonID, ok := existingSeasons[seasonKey{showID, season}]
+		seasonID, ok := existingSeasons[seasonKey{titleID, season}]
 		if !ok {
 			continue
 		}
 
-		// Get display name from collected episode titles
-		displayName := ""
-		if title, ok := episodeTitles.Load(episodeImdbID); ok {
-			displayName = title.(string)
-		}
+		displayName := lookupDisplayName(episodeImdbID)
 
 		scanned++
+		pendingBatch = append(pendingBatch, episodeReady{
+			seasonID:    seasonID,
+			episode:     episode,
+			displayName: displayName,
+		})
 
-		key := episodeKey{seasonID, episode}
-		if existing, ok := existingEpisodes[key]; ok {
-			// Episode exists - check if display_name needs update
-			if displayName != "" && existing.DisplayName != displayName {
-				toUpdate = append(toUpdate, EpisodeUpdate{
-					ID:          existing.ID,
-					DisplayName: displayName,
-				})
-			} else {
-				unchanged++
+		if len(pendingBatch) >= upsertBatchSize {
+			ins, upd, unch, err := upsertEpisodeBatchDirect(pendingBatch)
+			if err != nil {
+				return err
 			}
+			inserted += ins
+			updated += upd
+			unchangedEp += unch
+			pendingBatch = pendingBatch[:0]
+			batchNum++
+
+			if batchNum%500 == 0 {
+				log.Printf("[episodes] %d/%d batches (%d rows) | %d inserted, %d updated, %d unchanged",
+					batchNum, totalBatches, scanned, inserted, updated, unchangedEp)
+			}
+		}
+	}
+
+	// Flush remaining
+	if len(pendingBatch) > 0 {
+		ins, upd, unch, err := upsertEpisodeBatchDirect(pendingBatch)
+		if err != nil {
+			return err
+		}
+		inserted += ins
+		updated += upd
+		unchangedEp += unch
+		batchNum++
+	}
+
+	log.Printf("[episodes] complete: %d batches, %d rows | %d inserted, %d updated, %d unchanged, %d skipped",
+		batchNum, scanned, inserted, updated, unchangedEp, skipped)
+
+	return epScanner.Err()
+}
+
+// upsertEpisodeBatchDirect UPSERTs episodes with display names already resolved.
+func upsertEpisodeBatchDirect(batch []episodeReady) (int64, int64, int64, error) {
+	if len(batch) == 0 {
+		return 0, 0, 0, nil
+	}
+
+	values := make([]string, len(batch))
+	args := make([]any, len(batch)*3)
+	for j, ep := range batch {
+		base := j * 3
+		values[j] = fmt.Sprintf("($%d, $%d, $%d)", base+1, base+2, base+3)
+		args[base] = ep.seasonID
+		args[base+1] = ep.episode
+		if ep.displayName == "" {
+			args[base+2] = nil
 		} else {
-			// New episode
-			var dn *string
-			if displayName != "" {
-				dn = &displayName
-			}
-			toInsert = append(toInsert, EpisodeInsert{
-				SeasonID:    seasonID,
-				Episode:     episode,
-				DisplayName: dn,
-			})
-		}
-
-		if scanned%100000 == 0 {
-			log.Printf("Scanned %d episodes: %d unchanged, %d to insert, %d to update, %d skipped...",
-				scanned, unchanged, len(toInsert), len(toUpdate), skipped)
+			args[base+2] = ep.displayName
 		}
 	}
 
-	log.Printf("Scan complete: %d episodes, %d unchanged, %d to insert, %d to update, %d skipped",
-		scanned, unchanged, len(toInsert), len(toUpdate), skipped)
+	query := fmt.Sprintf(`
+		INSERT INTO show_episodes (season_id, episode, display_name)
+		VALUES %s
+		ON CONFLICT (season_id, episode) DO UPDATE SET
+			display_name = EXCLUDED.display_name
+		WHERE show_episodes.display_name IS DISTINCT FROM EXCLUDED.display_name
+		RETURNING id, (xmax = 0) as was_inserted
+	`, strings.Join(values, ","))
 
-	// Insert new episodes in batches
-	if len(toInsert) > 0 {
-		log.Printf("Inserting %d new episodes...", len(toInsert))
-		for i := 0; i < len(toInsert); i += batchSize {
-			end := i + batchSize
-			if end > len(toInsert) {
-				end = len(toInsert)
-			}
-			batch := toInsert[i:end]
-
-			values := make([]string, len(batch))
-			args := make([]any, len(batch)*3)
-			for j, ep := range batch {
-				base := j * 3
-				values[j] = fmt.Sprintf("($%d, $%d, $%d)", base+1, base+2, base+3)
-				args[base] = ep.SeasonID
-				args[base+1] = ep.Episode
-				args[base+2] = ep.DisplayName
-			}
-
-			_, err := db.Exec(fmt.Sprintf(`
-				INSERT INTO show_episodes (season_id, episode, display_name)
-				VALUES %s
-			`, strings.Join(values, ",")), args...)
-			if err != nil {
-				return fmt.Errorf("episode insert: %w", err)
-			}
-
-			if (i/batchSize+1)%20 == 0 || end >= len(toInsert) {
-				log.Printf("  inserted %d/%d episodes...", end, len(toInsert))
-			}
-		}
-	}
-
-	// Update episodes with changed display names
-	if len(toUpdate) > 0 {
-		log.Printf("Updating %d episodes with new display names...", len(toUpdate))
-		for i := 0; i < len(toUpdate); i += batchSize {
-			end := i + batchSize
-			if end > len(toUpdate) {
-				end = len(toUpdate)
-			}
-			batch := toUpdate[i:end]
-
-			// Build UPDATE with CASE
-			args := make([]any, 0, len(batch)*2)
-			cases := make([]string, len(batch))
-			idPlaceholders := make([]string, len(batch))
-
-			for j, ep := range batch {
-				base := j * 2
-				idPlaceholders[j] = fmt.Sprintf("$%d", base+1)
-				cases[j] = fmt.Sprintf("WHEN id = $%d THEN $%d", base+1, base+2)
-				args = append(args, ep.ID, ep.DisplayName)
-			}
-
-			_, err := db.Exec(fmt.Sprintf(`
-				UPDATE show_episodes SET
-					display_name = CASE %s END
-				WHERE id IN (%s)
-			`, strings.Join(cases, " "), strings.Join(idPlaceholders, ",")), args...)
-			if err != nil {
-				return fmt.Errorf("episode update: %w", err)
-			}
-
-			if (i/batchSize+1)%20 == 0 || end >= len(toUpdate) {
-				log.Printf("  updated %d/%d episodes...", end, len(toUpdate))
-			}
-		}
-	}
-
-	log.Printf("Episodes done: %d inserted, %d updated, %d unchanged, %d skipped (missing season/episode)",
-		len(toInsert), len(toUpdate), unchanged, skipped)
-
-	return scanner.Err()
-}
-
-type ExistingRating struct {
-	NumVotes      int
-	AverageRating float64
-}
-
-func syncRatings(filepath string) error {
-	// Load existing ratings into memory for diffing
-	log.Println("Loading existing ratings from database...")
-	existingRatings := make(map[string]ExistingRating)
-	rows, err := db.Query(`SELECT imdb_id, COALESCE(num_votes, 0), COALESCE(average_rating, 0) FROM titles WHERE imdb_id IS NOT NULL`)
+	resultRows, err := db.Query(query, args...)
 	if err != nil {
-		return err
+		return 0, 0, 0, fmt.Errorf("episode upsert: %w", err)
 	}
-	for rows.Next() {
-		var imdbID string
-		var r ExistingRating
-		rows.Scan(&imdbID, &r.NumVotes, &r.AverageRating)
-		existingRatings[imdbID] = r
-	}
-	rows.Close()
-	log.Printf("Loaded %d existing ratings", len(existingRatings))
 
+	var insertCount, updateCount int64
+	for resultRows.Next() {
+		var id int
+		var wasInserted bool
+		resultRows.Scan(&id, &wasInserted)
+		if wasInserted {
+			insertCount++
+		} else {
+			updateCount++
+		}
+	}
+	resultRows.Close()
+
+	unchangedCount := int64(len(batch)) - insertCount - updateCount
+	return insertCount, updateCount, unchangedCount, nil
+}
+
+// syncRatings streams the ratings TSV and batch-UPDATEs in batches of 100.
+// No pre-loaded map of existing ratings.
+func syncRatings(filepath string) error {
 	f, err := os.Open(filepath)
 	if err != nil {
 		return err
@@ -1221,8 +980,13 @@ func syncRatings(filepath string) error {
 	scanner.Buffer(make([]byte, 1024*1024), 1024*1024)
 	scanner.Scan() // Skip header: tconst, averageRating, numVotes
 
-	var batch []RatingRecord
-	var scanned, updated, unchanged int64
+	var (
+		batch        []RatingRecord
+		scanned      int64
+		updated      int64
+		batchNum     int64
+		totalBatches int64 = 14000 // ~1.4M ratings / 100
+	)
 
 	for scanner.Scan() {
 		fields := strings.Split(scanner.Text(), "\t")
@@ -1241,45 +1005,46 @@ func syncRatings(filepath string) error {
 		}
 
 		scanned++
-
-		// Skip if unchanged
-		if existing, ok := existingRatings[imdbID]; ok {
-			if existing.NumVotes == numVotes && existing.AverageRating == float64(float32(averageRating)) {
-				unchanged++
-				continue
-			}
-		}
-
 		batch = append(batch, RatingRecord{imdbID, numVotes, averageRating})
 
-		if len(batch) >= batchSize {
-			n, err := updateRatingsBatch(batch)
+		if len(batch) >= upsertBatchSize {
+			n, err := updateRatingsBatchStreaming(batch)
 			if err != nil {
 				return err
 			}
 			updated += n
 			batch = batch[:0]
-		}
+			batchNum++
 
-		if scanned%500000 == 0 {
-			log.Printf("Scanned %d ratings: %d unchanged, %d to update...", scanned, unchanged, updated+int64(len(batch)))
+			if batchNum%150 == 0 {
+				log.Printf("[ratings] %d/%d batches (%d rows) | %d updated",
+					batchNum, totalBatches, scanned, updated)
+			}
 		}
 	}
 
 	// Flush remaining
 	if len(batch) > 0 {
-		n, err := updateRatingsBatch(batch)
+		n, err := updateRatingsBatchStreaming(batch)
 		if err != nil {
 			return err
 		}
 		updated += n
+		batchNum++
 	}
 
-	log.Printf("Ratings complete: scanned %d, updated %d, unchanged %d", scanned, updated, unchanged)
+	log.Printf("[ratings] complete: %d batches, %d rows scanned, %d updated",
+		batchNum, scanned, updated)
 	return scanner.Err()
 }
 
-func updateRatingsBatch(records []RatingRecord) (int64, error) {
+// updateRatingsBatchStreaming updates ratings using WHERE IS DISTINCT FROM
+// to skip unchanged rows. No pre-loaded map needed.
+func updateRatingsBatchStreaming(records []RatingRecord) (int64, error) {
+	if len(records) == 0 {
+		return 0, nil
+	}
+
 	args := make([]any, 0, len(records)*3)
 	votesCases := make([]string, len(records))
 	ratingCases := make([]string, len(records))
@@ -1293,12 +1058,19 @@ func updateRatingsBatch(records []RatingRecord) (int64, error) {
 		args = append(args, r.ImdbID, r.NumVotes, r.AverageRating)
 	}
 
+	// Use subquery with IS DISTINCT FROM to only update changed rows
 	result, err := db.Exec(fmt.Sprintf(`
 		UPDATE titles SET
 			num_votes = CASE %s END,
 			average_rating = CASE %s END
 		WHERE imdb_id IN (%s)
-	`, strings.Join(votesCases, " "), strings.Join(ratingCases, " "), strings.Join(idPlaceholders, ",")), args...)
+		AND (
+			num_votes IS DISTINCT FROM (CASE %s END)
+			OR average_rating IS DISTINCT FROM (CASE %s END)
+		)
+	`, strings.Join(votesCases, " "), strings.Join(ratingCases, " "),
+		strings.Join(idPlaceholders, ","),
+		strings.Join(votesCases, " "), strings.Join(ratingCases, " ")), args...)
 	if err != nil {
 		return 0, fmt.Errorf("ratings update: %w", err)
 	}
@@ -1389,7 +1161,7 @@ func tmdbBackfill(titleID int, imdbID, titleType string) string {
 			defer dresp.Body.Close()
 			if dresp.StatusCode == 200 {
 				var detail struct {
-					OriginCountry     []string `json:"origin_country"`
+					OriginCountry       []string `json:"origin_country"`
 					ProductionCountries []struct {
 						ISO string `json:"iso_3166_1"`
 					} `json:"production_countries"`
@@ -1522,9 +1294,9 @@ func tmdbBackfillBatch() {
 
 			// Call TMDB Details API
 			<-rateLimiter.C
-			detailURL := fmt.Sprintf("https://api.themoviedb.org/3/movie/%d?api_key=%s", tmdbID, tmdbAPIKey)
+			detailURL := fmt.Sprintf("https://api.themoviedb.org/3/movie/%d?api_key=%s&append_to_response=watch/providers", tmdbID, tmdbAPIKey)
 			if r.Type == "show" {
-				detailURL = fmt.Sprintf("https://api.themoviedb.org/3/tv/%d?api_key=%s", tmdbID, tmdbAPIKey)
+				detailURL = fmt.Sprintf("https://api.themoviedb.org/3/tv/%d?api_key=%s&append_to_response=watch/providers", tmdbID, tmdbAPIKey)
 			}
 
 			dresp, err := http.Get(detailURL)
@@ -1559,7 +1331,12 @@ func tmdbBackfillBatch() {
 				ProductionCountries []struct {
 					ISO string `json:"iso_3166_1"`
 				} `json:"production_countries"`
-				Runtime float64 `json:"runtime"`
+				Runtime             float64         `json:"runtime"`
+				Networks            json.RawMessage `json:"networks"`
+				ProductionCompanies json.RawMessage `json:"production_companies"`
+				WatchProviders      struct {
+					Results json.RawMessage `json:"results"`
+				} `json:"watch/providers"`
 			}
 			json.NewDecoder(dresp.Body).Decode(&detail)
 			dresp.Body.Close()
@@ -1589,10 +1366,15 @@ func tmdbBackfillBatch() {
 				tmdb_popularity = CASE WHEN $5::real = 0 THEN tmdb_popularity ELSE $5::real END,
 				origin_country = COALESCE(NULLIF($6, ''), origin_country),
 				runtime_minutes = CASE WHEN $7::int = 0 THEN runtime_minutes ELSE $7::int END,
-				needs_backfill_tmdb = false
+				needs_backfill_tmdb = false,
+				networks = $9,
+				production_companies = $10,
+				watch_providers = $11,
+				watch_providers_checked_at = NOW()
 				WHERE id = $8`,
 				tmdbID, imageURL, detail.OriginalLanguage, releaseDate,
-				detail.Popularity, originCountry, int(detail.Runtime), r.ID)
+				detail.Popularity, originCountry, int(detail.Runtime), r.ID,
+				detail.Networks, detail.ProductionCompanies, detail.WatchProviders.Results)
 
 			if err != nil {
 				log.Printf("    DB update error for %d: %v", r.ID, err)

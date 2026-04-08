@@ -54,27 +54,33 @@ var (
 // Models
 
 type Title struct {
-	TitleID          int       `json:"title_id"`
-	Type             string    `json:"type"`
-	DisplayName      string    `json:"display_name"`
-	StartYear        *int      `json:"start_year,omitempty"`
-	EndYear          *int      `json:"end_year,omitempty"`
-	IMDbID           *string   `json:"imdb_id,omitempty"`
-	ImageURL         *string   `json:"image_url,omitempty"`
-	TMDBID           *int      `json:"tmdb_id,omitempty"`
-	NumVotes         *int      `json:"num_votes,omitempty"`
-	AverageRating    *float64  `json:"average_rating,omitempty"`
-	OriginalTitle    *string   `json:"original_title,omitempty"`
-	OriginalLanguage *string   `json:"original_language,omitempty"`
-	ReleaseDate      *string   `json:"release_date,omitempty"`
-	TMDBPopularity   *float64  `json:"tmdb_popularity,omitempty"`
-	RuntimeMinutes   *int      `json:"runtime_minutes,omitempty"`
-	OriginCountry      *string   `json:"origin_country,omitempty"`
-	NeedsBackfillTMDB  bool       `json:"-"`
-	EpisodesCheckedAt  *time.Time `json:"-"`
-	Genres             []string  `json:"genres,omitempty"`
-	CreatedAt        time.Time `json:"created_at"`
-	UpdatedAt        time.Time `json:"updated_at"`
+	TitleID            int        `json:"title_id"`
+	Type               string     `json:"type"`
+	DisplayName        string     `json:"display_name"`
+	StartYear          *int       `json:"start_year,omitempty"`
+	EndYear            *int       `json:"end_year,omitempty"`
+	IMDbID             *string    `json:"imdb_id,omitempty"`
+	ImageURL           *string    `json:"image_url,omitempty"`
+	TMDBID             *int       `json:"tmdb_id,omitempty"`
+	NumVotes           *int       `json:"num_votes,omitempty"`
+	AverageRating      *float64   `json:"average_rating,omitempty"`
+	OriginalTitle      *string    `json:"original_title,omitempty"`
+	OriginalLanguage   *string    `json:"original_language,omitempty"`
+	ReleaseDate        *string    `json:"release_date,omitempty"`
+	TMDBPopularity     *float64   `json:"tmdb_popularity,omitempty"`
+	RuntimeMinutes     *int       `json:"runtime_minutes,omitempty"`
+	OriginCountry      *string    `json:"origin_country,omitempty"`
+	IsSeriesFinished   *bool      `json:"is_series_finished,omitempty"`
+	WatchProviders          *json.RawMessage `json:"watch_providers,omitempty"`
+	WatchProvidersCheckedAt *time.Time       `json:"-"`
+	Networks                *json.RawMessage `json:"networks,omitempty"`
+	ProductionCompanies     *json.RawMessage `json:"production_companies,omitempty"`
+	NeedsBackfillTMDB       bool            `json:"-"`
+	EpisodesCheckedAt       *time.Time      `json:"-"`
+	Genres             []string   `json:"genres,omitempty"`
+	Seasons            []Season   `json:"seasons,omitempty"`
+	CreatedAt          time.Time  `json:"created_at"`
+	UpdatedAt          time.Time  `json:"updated_at"`
 }
 
 // DiscoverTitle is a lightweight struct for poster grid display
@@ -85,8 +91,6 @@ type DiscoverTitle struct {
 	StartYear        *int     `json:"start_year,omitempty"`
 	EndYear          *int     `json:"end_year,omitempty"`
 	ImageURL         *string  `json:"image_url,omitempty"`
-	MovieID          *int     `json:"movie_id,omitempty"`
-	ShowID           *int     `json:"show_id,omitempty"`
 	AverageRating    *float64 `json:"average_rating,omitempty"`
 	NumVotes         *int     `json:"num_votes,omitempty"`
 	TMDBPopularity   *float64 `json:"tmdb_popularity,omitempty"`
@@ -127,7 +131,7 @@ type CollectionDef struct {
 	Titles []string `yaml:"titles"` // imdb_ids for static strategy
 }
 
-// TitleSearchResult includes show_id or movie_id for easier client navigation
+// TitleSearchResult for search/list endpoints
 type TitleSearchResult struct {
 	TitleID          int       `json:"title_id"`
 	Type             string    `json:"type"`
@@ -137,8 +141,6 @@ type TitleSearchResult struct {
 	IMDbID           *string   `json:"imdb_id,omitempty"`
 	ImageURL         *string   `json:"image_url,omitempty"`
 	TMDBID           *int      `json:"tmdb_id,omitempty"`
-	ShowID           *int      `json:"show_id,omitempty"`
-	MovieID          *int      `json:"movie_id,omitempty"`
 	NumVotes         *int      `json:"num_votes,omitempty"`
 	AverageRating    *float64  `json:"average_rating,omitempty"`
 	OriginalTitle    *string   `json:"original_title,omitempty"`
@@ -148,23 +150,9 @@ type TitleSearchResult struct {
 	UpdatedAt        time.Time `json:"updated_at"`
 }
 
-type Movie struct {
-	MovieID int   `json:"movie_id"`
-	TitleID int   `json:"title_id"`
-	Title   Title `json:"title"`
-}
-
-type Show struct {
-	ShowID           int      `json:"show_id"`
-	TitleID          int      `json:"title_id"`
-	Title            Title    `json:"title"`
-	Seasons          []Season `json:"seasons,omitempty"`
-	IsSeriesFinished *bool    `json:"is_series_finished"`
-}
-
 type Season struct {
 	SeasonID         int       `json:"season_id"`
-	ShowID           int       `json:"show_id"`
+	TitleID          int       `json:"title_id"`
 	SeasonNumber     int       `json:"season_number"`
 	Episodes         []Episode `json:"episodes,omitempty"`
 	IsSeasonFinished *bool     `json:"is_season_finished"`
@@ -330,7 +318,7 @@ func onReady() {
 		},
 	}
 	tmpls = make(map[string]*template.Template)
-	pages := []string{"home", "titles", "movie", "show", "add", "search", "api", "discover"}
+	pages := []string{"home", "titles", "title", "add", "search", "api", "discover"}
 	for _, page := range pages {
 		t, err := template.New("").Funcs(funcMap).ParseFS(templateFS, "templates/base.html", "templates/"+page+".html")
 		if err != nil {
@@ -397,23 +385,16 @@ func onReady() {
 	mux.HandleFunc("/", noCache(handleHome))
 	mux.HandleFunc("/discover", noCache(handleDiscoverPage))
 	mux.HandleFunc("/titles", noCache(handleTitlesList))
-	mux.HandleFunc("/movies/", noCache(handleMoviePage))
-	mux.HandleFunc("/shows/", noCache(handleShowPage))
+	mux.HandleFunc("/titles/", noCache(handleTitlePage))
 	mux.HandleFunc("/add", noCache(handleAddPage))
 	mux.HandleFunc("/api", noCache(handleAPIPage))
 	mux.HandleFunc("/api/", noCache(handleAPISlash))
 
+	// Legacy redirects
+
 	// API - Titles
 	mux.HandleFunc("/api/titles", noCache(handleAPITitles))
 	mux.HandleFunc("/api/titles/", noCache(handleAPITitle))
-
-	// API - Movies
-	mux.HandleFunc("/api/movies", noCache(handleAPIMoviesCreate))
-	mux.HandleFunc("/api/movies/", noCache(handleAPIMovie))
-
-	// API - Shows
-	mux.HandleFunc("/api/shows", noCache(handleAPIShowsCreate))
-	mux.HandleFunc("/api/shows/", noCache(handleAPIShow))
 
 	// API - Seasons
 	mux.HandleFunc("/api/seasons/", noCache(handleAPISeason))
@@ -427,8 +408,7 @@ func onReady() {
 	mux.HandleFunc("/api/collections", noCache(handleAPICollections))
 	mux.HandleFunc("/api/collections/", noCache(handleAPICollection))
 
-	// API v2
-	mux.HandleFunc("/api/v2/titles/", noCache(handleAPIV2Title))
+
 
 	port := os.Getenv("PORT")
 	if port == "" {
@@ -576,7 +556,7 @@ func onReadyHeadless() {
 		},
 	}
 	tmpls = make(map[string]*template.Template)
-	pages := []string{"home", "titles", "movie", "show", "add", "search", "api", "discover"}
+	pages := []string{"home", "titles", "title", "add", "search", "api", "discover"}
 	for _, page := range pages {
 		t, err := template.New("").Funcs(funcMap).ParseFS(templateFS, "templates/base.html", "templates/"+page+".html")
 		if err != nil {
@@ -636,17 +616,15 @@ func onReadyHeadless() {
 	mux.HandleFunc("/", noCache(handleHome))
 	mux.HandleFunc("/discover", noCache(handleDiscoverPage))
 	mux.HandleFunc("/titles", noCache(handleTitlesList))
-	mux.HandleFunc("/movies/", noCache(handleMoviePage))
-	mux.HandleFunc("/shows/", noCache(handleShowPage))
+	mux.HandleFunc("/titles/", noCache(handleTitlePage))
 	mux.HandleFunc("/add", noCache(handleAddPage))
 	mux.HandleFunc("/api", noCache(handleAPIPage))
 	mux.HandleFunc("/api/", noCache(handleAPISlash))
+
+	// Legacy redirects
+
 	mux.HandleFunc("/api/titles", noCache(handleAPITitles))
 	mux.HandleFunc("/api/titles/", noCache(handleAPITitle))
-	mux.HandleFunc("/api/movies", noCache(handleAPIMoviesCreate))
-	mux.HandleFunc("/api/movies/", noCache(handleAPIMovie))
-	mux.HandleFunc("/api/shows", noCache(handleAPIShowsCreate))
-	mux.HandleFunc("/api/shows/", noCache(handleAPIShow))
 	mux.HandleFunc("/api/seasons/", noCache(handleAPISeason))
 	mux.HandleFunc("/api/episodes/", noCache(handleAPIEpisode))
 	mux.HandleFunc("/api/discover/carousels", noCache(handleAPIDiscoverCarousels))
@@ -654,8 +632,7 @@ func onReadyHeadless() {
 	mux.HandleFunc("/api/collections", noCache(handleAPICollections))
 	mux.HandleFunc("/api/collections/", noCache(handleAPICollection))
 
-	// API v2
-	mux.HandleFunc("/api/v2/titles/", noCache(handleAPIV2Title))
+
 
 	port := os.Getenv("PORT")
 	if port == "" {
@@ -957,9 +934,9 @@ func maybeTMDBBackfill(title *Title) {
 	}
 
 	// Call TMDB details API for full metadata
-	detailURL := fmt.Sprintf("https://api.themoviedb.org/3/movie/%d?api_key=%s", tmdbID, tmdbAPIKey)
+	detailURL := fmt.Sprintf("https://api.themoviedb.org/3/movie/%d?api_key=%s&append_to_response=watch/providers", tmdbID, tmdbAPIKey)
 	if title.Type == "show" {
-		detailURL = fmt.Sprintf("https://api.themoviedb.org/3/tv/%d?api_key=%s", tmdbID, tmdbAPIKey)
+		detailURL = fmt.Sprintf("https://api.themoviedb.org/3/tv/%d?api_key=%s&append_to_response=watch/providers", tmdbID, tmdbAPIKey)
 	}
 	dresp, err := http.Get(detailURL)
 	if err != nil {
@@ -983,7 +960,12 @@ func maybeTMDBBackfill(title *Title) {
 		ProductionCountries []struct {
 			ISO string `json:"iso_3166_1"`
 		} `json:"production_countries"`
-		Runtime float64 `json:"runtime"`
+		Runtime             float64         `json:"runtime"`
+		Networks            json.RawMessage `json:"networks"`
+		ProductionCompanies json.RawMessage `json:"production_companies"`
+		WatchProviders      struct {
+			Results json.RawMessage `json:"results"`
+		} `json:"watch/providers"`
 	}
 	if json.NewDecoder(dresp.Body).Decode(&detail) != nil {
 		return
@@ -1014,10 +996,15 @@ func maybeTMDBBackfill(title *Title) {
 		tmdb_popularity = CASE WHEN $5::real = 0 THEN tmdb_popularity ELSE $5::real END,
 		origin_country = COALESCE(NULLIF($6, ''), origin_country),
 		runtime_minutes = CASE WHEN $7::int = 0 THEN runtime_minutes ELSE $7::int END,
-		needs_backfill_tmdb = false
+		needs_backfill_tmdb = false,
+		networks = $9,
+		production_companies = $10,
+		watch_providers = $11,
+		watch_providers_checked_at = NOW()
 		WHERE id = $8`,
 		tmdbID, imageURL, detail.OriginalLanguage, releaseDate,
-		detail.Popularity, originCountry, int(detail.Runtime), title.TitleID)
+		detail.Popularity, originCountry, int(detail.Runtime), title.TitleID,
+		detail.Networks, detail.ProductionCompanies, detail.WatchProviders.Results)
 
 	if err != nil {
 		log.Printf("TMDB backfill update failed for title %d: %v", title.TitleID, err)
@@ -1038,6 +1025,62 @@ func maybeTMDBBackfill(title *Title) {
 	if detail.Popularity > 0 {
 		title.TMDBPopularity = &detail.Popularity
 	}
+	if detail.Networks != nil {
+		title.Networks = &detail.Networks
+	}
+	if detail.ProductionCompanies != nil {
+		title.ProductionCompanies = &detail.ProductionCompanies
+	}
+	if detail.WatchProviders.Results != nil {
+		title.WatchProviders = &detail.WatchProviders.Results
+	}
+	now := time.Now()
+	title.WatchProvidersCheckedAt = &now
+}
+
+// maybeFetchWatchProviders fetches watch providers from TMDB if stale (>7 days) or missing.
+// This is a standalone lazy fetch — separate from maybeTMDBBackfill which runs once on backfill.
+func maybeFetchWatchProviders(title *Title) {
+	if tmdbAPIKey == "" || title.TMDBID == nil || *title.TMDBID == 0 {
+		return
+	}
+	if title.WatchProvidersCheckedAt != nil && time.Since(*title.WatchProvidersCheckedAt) < 7*24*time.Hour {
+		return
+	}
+
+	mediaType := "movie"
+	if title.Type == "show" {
+		mediaType = "tv"
+	}
+	url := fmt.Sprintf("https://api.themoviedb.org/3/%s/%d/watch/providers?api_key=%s", mediaType, *title.TMDBID, tmdbAPIKey)
+	resp, err := http.Get(url)
+	if err != nil {
+		return
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != 200 {
+		return
+	}
+
+	var result struct {
+		Results json.RawMessage `json:"results"`
+	}
+	if json.NewDecoder(resp.Body).Decode(&result) != nil {
+		return
+	}
+
+	_, err = db.Exec(`UPDATE titles SET watch_providers = $1, watch_providers_checked_at = NOW() WHERE id = $2`,
+		result.Results, title.TitleID)
+	if err != nil {
+		log.Printf("Watch providers update failed for title %d: %v", title.TitleID, err)
+		return
+	}
+
+	if result.Results != nil {
+		title.WatchProviders = &result.Results
+	}
+	now := time.Now()
+	title.WatchProvidersCheckedAt = &now
 }
 
 // fetchAndStoreEpisodeData fetches episode data from TMDB and stores it in the DB.
@@ -1120,10 +1163,10 @@ func fetchAndStoreEpisodeData(tmdbID, seasonNum, episodeNum, episodeID int) (ima
 
 // stripEpisodeSentinels removes TMDB_NOT_FOUND_DO_NOT_RETRY sentinels from episode image URLs
 // so they render as missing images in the template.
-func stripEpisodeSentinels(show *Show) {
-	for si := range show.Seasons {
-		for ei := range show.Seasons[si].Episodes {
-			ep := &show.Seasons[si].Episodes[ei]
+func stripEpisodeSentinels(title *Title) {
+	for si := range title.Seasons {
+		for ei := range title.Seasons[si].Episodes {
+			ep := &title.Seasons[si].Episodes[ei]
 			if ep.ImageURL != nil && *ep.ImageURL == "TMDB_NOT_FOUND_DO_NOT_RETRY" {
 				ep.ImageURL = nil
 			}
@@ -1134,25 +1177,25 @@ func stripEpisodeSentinels(show *Show) {
 // maybeFetchEpisodes fetches episode data from TMDB for episodes missing data.
 // Uses a 24-hour cooldown (episodes_checked_at) to avoid hammering TMDB on every page visit,
 // while still retrying episodes that previously had no image available.
-func maybeFetchEpisodes(show *Show) {
+func maybeFetchEpisodes(title *Title) {
 	if tmdbAPIKey == "" {
 		return
 	}
-	if show.Title.IMDbID == nil || *show.Title.IMDbID == "" {
+	if title.IMDbID == nil || *title.IMDbID == "" {
 		return
 	}
 
 	// Get TMDB ID — fetch it if we don't have it yet
 	tmdbID := 0
-	if show.Title.TMDBID != nil {
-		tmdbID = *show.Title.TMDBID
+	if title.TMDBID != nil {
+		tmdbID = *title.TMDBID
 	}
 	if tmdbID == 0 {
 		// Call fetchAndStoreTMDBImage to resolve the TMDB ID
-		_, id := fetchAndStoreTMDBImage(*show.Title.IMDbID, "show")
+		_, id := fetchAndStoreTMDBImage(*title.IMDbID, "show")
 		tmdbID = id
 		if tmdbID != 0 {
-			show.Title.TMDBID = &tmdbID
+			title.TMDBID = &tmdbID
 		}
 	}
 	if tmdbID == 0 {
@@ -1160,9 +1203,9 @@ func maybeFetchEpisodes(show *Show) {
 	}
 
 	// Daily cooldown: if we checked recently, just strip sentinels and return
-	if show.Title.EpisodesCheckedAt != nil &&
-		time.Since(*show.Title.EpisodesCheckedAt) < 24*time.Hour {
-		stripEpisodeSentinels(show)
+	if title.EpisodesCheckedAt != nil &&
+		time.Since(*title.EpisodesCheckedAt) < 24*time.Hour {
+		stripEpisodeSentinels(title)
 		return
 	}
 
@@ -1175,7 +1218,7 @@ func maybeFetchEpisodes(show *Show) {
 		episodeID  int
 	}
 	var toFetch []epRef
-	for si, season := range show.Seasons {
+	for si, season := range title.Seasons {
 		for ei, ep := range season.Episodes {
 			if ep.ImageURL == nil || *ep.ImageURL == "" || *ep.ImageURL == "TMDB_NOT_FOUND_DO_NOT_RETRY" {
 				toFetch = append(toFetch, epRef{si, ei, season.SeasonNumber, ep.EpisodeNumber, ep.EpisodeID})
@@ -1184,11 +1227,11 @@ func maybeFetchEpisodes(show *Show) {
 	}
 
 	if len(toFetch) == 0 {
-		stripEpisodeSentinels(show)
+		stripEpisodeSentinels(title)
 		return
 	}
 
-	log.Printf("Fetching TMDB data for %d episodes of %s (tmdb_id=%d)", len(toFetch), show.Title.DisplayName, tmdbID)
+	log.Printf("Fetching TMDB data for %d episodes of %s (tmdb_id=%d)", len(toFetch), title.DisplayName, tmdbID)
 
 	var wg sync.WaitGroup
 	sem := make(chan struct{}, 5) // limit to 5 concurrent TMDB requests
@@ -1233,7 +1276,7 @@ func maybeFetchEpisodes(show *Show) {
 	// e.g. season 1 has 24 eps, season 2 has 24 eps → offset for season 3 = 48
 	episodeOffset := map[int]int{}
 	cumulative := 0
-	for _, s := range show.Seasons {
+	for _, s := range title.Seasons {
 		episodeOffset[s.SeasonNumber] = cumulative
 		cumulative += len(s.Episodes)
 	}
@@ -1255,7 +1298,7 @@ func maybeFetchEpisodes(show *Show) {
 	}
 
 	if len(omniRetry) > 0 {
-		log.Printf("Trying omniseason fallback for %d episodes of %s (mapping to TMDB S1)", len(omniRetry), show.Title.DisplayName)
+		log.Printf("Trying omniseason fallback for %d episodes of %s (mapping to TMDB S1)", len(omniRetry), title.DisplayName)
 		var wg2 sync.WaitGroup
 		for _, idx := range omniRetry {
 			wg2.Add(1)
@@ -1287,7 +1330,7 @@ func maybeFetchEpisodes(show *Show) {
 			continue
 		}
 		fetched++
-		ep := &show.Seasons[res.ref.seasonIdx].Episodes[res.ref.episodeIdx]
+		ep := &title.Seasons[res.ref.seasonIdx].Episodes[res.ref.episodeIdx]
 		if res.imageURL != "" {
 			ep.ImageURL = &res.imageURL
 		}
@@ -1304,12 +1347,12 @@ func maybeFetchEpisodes(show *Show) {
 			ep.RuntimeMinutes = &res.runtime
 		}
 	}
-	log.Printf("TMDB episode fetch done for %s: %d succeeded, %d failed out of %d", show.Title.DisplayName, fetched, failed, len(toFetch))
+	log.Printf("TMDB episode fetch done for %s: %d succeeded, %d failed out of %d", title.DisplayName, fetched, failed, len(toFetch))
 
 	// Update the timestamp so we don't re-fetch within 24 hours
-	db.Exec(`UPDATE titles SET episodes_checked_at = NOW() WHERE id = $1`, show.Title.TitleID)
+	db.Exec(`UPDATE titles SET episodes_checked_at = NOW() WHERE id = $1`, title.TitleID)
 
-	stripEpisodeSentinels(show)
+	stripEpisodeSentinels(title)
 }
 
 // Page Handlers
@@ -1321,8 +1364,8 @@ func handleHome(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var movieCount, showCount int
-	db.QueryRow("SELECT COUNT(*) FROM movies").Scan(&movieCount)
-	db.QueryRow("SELECT COUNT(*) FROM shows").Scan(&showCount)
+	db.QueryRow("SELECT COUNT(*) FROM titles WHERE type = 'movie'").Scan(&movieCount)
+	db.QueryRow("SELECT COUNT(*) FROM titles WHERE type = 'show'").Scan(&showCount)
 
 	tmpls["home"].ExecuteTemplate(w, "base", map[string]any{
 		"MovieCount": movieCount,
@@ -1331,8 +1374,6 @@ func handleHome(w http.ResponseWriter, r *http.Request) {
 }
 
 type TitleListItem struct {
-	MovieID          *int     // set when type="movie"
-	ShowID           *int     // set when type="show"
 	TitleID          int
 	Type             string
 	DisplayName      string
@@ -1386,13 +1427,10 @@ func handleTitlesList(w http.ResponseWriter, r *http.Request) {
 
 	query := `
 		SELECT
-			m.id as movie_id, s.id as show_id,
 			t.id as title_id, t.type, t.display_name, t.start_year, t.end_year,
 			t.imdb_id, t.image_url, t.original_language,
 			t.num_votes, t.average_rating
-		FROM titles t
-		LEFT JOIN movies m ON m.title_id = t.id
-		LEFT JOIN shows s ON s.title_id = t.id` + where
+		FROM titles t` + where
 	query += ` ORDER BY t.num_votes DESC NULLS LAST, t.display_name LIMIT ` + strconv.Itoa(perPage) + ` OFFSET ` + strconv.Itoa(offset)
 
 	rows, err := db.Query(query, args...)
@@ -1405,7 +1443,7 @@ func handleTitlesList(w http.ResponseWriter, r *http.Request) {
 
 	for rows.Next() {
 		var item TitleListItem
-		rows.Scan(&item.MovieID, &item.ShowID, &item.TitleID, &item.Type, &item.DisplayName, &item.StartYear, &item.EndYear, &item.IMDbID, &item.ImageURL, &item.OriginalLanguage, &item.NumVotes, &item.AverageRating)
+		rows.Scan(&item.TitleID, &item.Type, &item.DisplayName, &item.StartYear, &item.EndYear, &item.IMDbID, &item.ImageURL, &item.OriginalLanguage, &item.NumVotes, &item.AverageRating)
 		items = append(items, item)
 	}
 
@@ -1487,10 +1525,10 @@ func handleTitlesList(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func handleMoviePage(w http.ResponseWriter, r *http.Request) {
-	idStr := strings.TrimPrefix(r.URL.Path, "/movies/")
+func handleTitlePage(w http.ResponseWriter, r *http.Request) {
+	idStr := strings.TrimPrefix(r.URL.Path, "/titles/")
 	if idStr == "" {
-		http.Redirect(w, r, "/titles?type=movie", http.StatusFound)
+		http.Redirect(w, r, "/titles", http.StatusFound)
 		return
 	}
 
@@ -1500,44 +1538,24 @@ func handleMoviePage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	movie, err := getMovieByID(id)
+	title, err := getTitleByID(id)
 	if err != nil {
 		http.NotFound(w, r)
 		return
 	}
 
-	maybeFetchImage(&movie.Title)
-	maybeTMDBBackfill(&movie.Title)
-	go logEngagement(movie.Title.TitleID, r.URL.Query().Get("source"))
+	maybeFetchImage(&title)
+	maybeTMDBBackfill(&title)
+	maybeFetchWatchProviders(&title)
 
-	tmpls["movie"].ExecuteTemplate(w, "base", movie)
-}
-
-func handleShowPage(w http.ResponseWriter, r *http.Request) {
-	idStr := strings.TrimPrefix(r.URL.Path, "/shows/")
-	if idStr == "" {
-		http.Redirect(w, r, "/titles?type=show", http.StatusFound)
-		return
+	if title.Type == "show" {
+		loadSeasonsForTitle(&title)
+		maybeFetchEpisodes(&title)
 	}
 
-	id, err := strconv.Atoi(idStr)
-	if err != nil {
-		http.NotFound(w, r)
-		return
-	}
+	go logEngagement(title.TitleID, r.URL.Query().Get("source"))
 
-	show, err := getShowByID(id, true)
-	if err != nil {
-		http.NotFound(w, r)
-		return
-	}
-
-	maybeFetchImage(&show.Title)
-	maybeTMDBBackfill(&show.Title)
-	maybeFetchEpisodes(&show)
-	go logEngagement(show.Title.TitleID, r.URL.Query().Get("source"))
-
-	tmpls["show"].ExecuteTemplate(w, "base", show)
+	tmpls["title"].ExecuteTemplate(w, "base", title)
 }
 
 func handleAddPage(w http.ResponseWriter, r *http.Request) {
@@ -1635,12 +1653,9 @@ func handleAPITitles(w http.ResponseWriter, r *http.Request) {
 
 		query := `
 			SELECT t.id, t.type, t.display_name, t.start_year, t.end_year, t.imdb_id, t.image_url, t.tmdb_id,
-			       m.id as movie_id, s.id as show_id,
 			       t.num_votes, t.average_rating, t.original_title, t.original_language,
 			       TO_CHAR(t.release_date, 'YYYY-MM-DD'), t.created_at, t.updated_at
-			FROM titles t
-			LEFT JOIN movies m ON m.title_id = t.id
-			LEFT JOIN shows s ON s.title_id = t.id` + where
+			FROM titles t` + where
 		query += ` ORDER BY t.num_votes DESC NULLS LAST, t.display_name LIMIT ` + strconv.Itoa(perPage) + ` OFFSET ` + strconv.Itoa(offset)
 
 		rows, err := db.Query(query, args...)
@@ -1653,7 +1668,7 @@ func handleAPITitles(w http.ResponseWriter, r *http.Request) {
 		var titles []TitleSearchResult
 		for rows.Next() {
 			var t TitleSearchResult
-			rows.Scan(&t.TitleID, &t.Type, &t.DisplayName, &t.StartYear, &t.EndYear, &t.IMDbID, &t.ImageURL, &t.TMDBID, &t.MovieID, &t.ShowID,
+			rows.Scan(&t.TitleID, &t.Type, &t.DisplayName, &t.StartYear, &t.EndYear, &t.IMDbID, &t.ImageURL, &t.TMDBID,
 				&t.NumVotes, &t.AverageRating, &t.OriginalTitle, &t.OriginalLanguage,
 				&t.ReleaseDate, &t.CreatedAt, &t.UpdatedAt)
 			titles = append(titles, t)
@@ -1705,10 +1720,24 @@ func handleAPITitle(w http.ResponseWriter, r *http.Request) {
 	if readOnly(w, r) {
 		return
 	}
-	idStr := strings.TrimPrefix(r.URL.Path, "/api/titles/")
-	id, err := strconv.Atoi(idStr)
+	path := strings.TrimPrefix(r.URL.Path, "/api/titles/")
+	parts := strings.SplitN(path, "/", 2)
+
+	id, err := strconv.Atoi(parts[0])
 	if err != nil {
 		jsonError(w, "Invalid ID", 400)
+		return
+	}
+
+	// Handle /api/titles/:id/seasons
+	if len(parts) >= 2 && parts[1] == "seasons" {
+		handleTitleSeasons(w, r, id)
+		return
+	}
+
+	// Handle /api/titles/:id/episodes?season=N
+	if len(parts) >= 2 && parts[1] == "episodes" {
+		handleAPITitleEpisodes(w, r, id)
 		return
 	}
 
@@ -1719,8 +1748,65 @@ func handleAPITitle(w http.ResponseWriter, r *http.Request) {
 			jsonError(w, "Not found", 404)
 			return
 		}
+
+		maybeFetchWatchProviders(&t)
+
+		layer := MCTitleLayer{
+			TitleID:     t.TitleID,
+			Kind:        t.Type,
+			IMDbID:      t.IMDbID,
+			DisplayName: t.DisplayName,
+			PosterURL:   t.ImageURL,
+			StartYear:   t.StartYear,
+			EndYear:     t.EndYear,
+			Genres:      t.Genres,
+			Rating:      t.AverageRating,
+			VoteCount:   t.NumVotes,
+		}
+		if layer.Genres == nil {
+			layer.Genres = []string{}
+		}
+
+		if t.Type == "show" {
+			rows, err := db.Query(`
+				SELECT ss.season, COUNT(se.id)
+				FROM show_seasons ss
+				LEFT JOIN show_episodes se ON se.season_id = ss.id
+				WHERE ss.title_id = $1
+				GROUP BY ss.season
+				ORDER BY ss.season
+			`, id)
+			if err != nil {
+				jsonError(w, "database error", 500)
+				return
+			}
+			defer rows.Close()
+
+			var seasons []MCSeasonInfo
+			totalEpisodes := 0
+			for rows.Next() {
+				var si MCSeasonInfo
+				rows.Scan(&si.SeasonNumber, &si.EpisodeCount)
+				totalEpisodes += si.EpisodeCount
+				seasons = append(seasons, si)
+			}
+
+			isFinished := t.EndYear != nil
+			layer.Show = &MCShowInfo{
+				SeasonCount:  len(seasons),
+				EpisodeCount: totalEpisodes,
+				IsFinished:   isFinished,
+				Seasons:      seasons,
+			}
+			if layer.Show.Seasons == nil {
+				layer.Show.Seasons = []MCSeasonInfo{}
+			}
+		} else {
+			layer.RuntimeMinutes = t.RuntimeMinutes
+		}
+
 		go logEngagement(t.TitleID, r.URL.Query().Get("source"))
-		jsonResponse(w, t)
+		jsonResponse(w, layer)
 
 	case "PUT":
 		var t Title
@@ -1754,246 +1840,14 @@ func handleAPITitle(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// API Handlers - Movies
-
-func handleAPIMoviesCreate(w http.ResponseWriter, r *http.Request) {
-	if readOnly(w, r) {
-		return
-	}
-	// POST blocked by readOnly
-
-	var req struct {
-		DisplayName string  `json:"display_name"`
-		StartYear   *int    `json:"start_year"`
-		EndYear     *int    `json:"end_year"`
-		IMDbID      *string `json:"imdb_id"`
-		ImageURL    *string `json:"image_url"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		jsonError(w, "Invalid JSON", 400)
-		return
-	}
-
-	tx, _ := db.Begin()
-	defer tx.Rollback()
-
-	var titleID int
-	err := tx.QueryRow(`
-		INSERT INTO titles (type, display_name, start_year, end_year, imdb_id, image_url)
-		VALUES ('movie', $1, $2, $3, $4, $5) RETURNING id
-	`, req.DisplayName, req.StartYear, req.EndYear, req.IMDbID, req.ImageURL).Scan(&titleID)
-	if err != nil {
-		jsonError(w, "Failed to create title: "+err.Error(), 500)
-		return
-	}
-
-	var movieID int
-	err = tx.QueryRow(`INSERT INTO movies (title_id) VALUES ($1) RETURNING id`, titleID).Scan(&movieID)
-	if err != nil {
-		jsonError(w, "Failed to create movie", 500)
-		return
-	}
-
-	tx.Commit()
-
-	movie, _ := getMovieByID(movieID)
-	w.WriteHeader(201)
-	jsonResponse(w, movie)
-}
-
-func handleAPIMovie(w http.ResponseWriter, r *http.Request) {
-	if readOnly(w, r) {
-		return
-	}
-	idStr := strings.TrimPrefix(r.URL.Path, "/api/movies/")
-	id, err := strconv.Atoi(idStr)
-	if err != nil {
-		jsonError(w, "Invalid ID", 400)
-		return
-	}
-
-	switch r.Method {
-	case "GET":
-		movie, err := getMovieByID(id)
-		if err != nil {
-			jsonError(w, "Not found", 404)
-			return
-		}
-		maybeFetchImage(&movie.Title)
-		go logEngagement(movie.Title.TitleID, r.URL.Query().Get("source"))
-		jsonResponse(w, movie)
-
-	case "PUT":
-		var req struct {
-			DisplayName string  `json:"display_name"`
-			StartYear   *int    `json:"start_year"`
-			EndYear     *int    `json:"end_year"`
-			IMDbID      *string `json:"imdb_id"`
-			ImageURL    *string `json:"image_url"`
-		}
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			jsonError(w, "Invalid JSON", 400)
-			return
-		}
-
-		var titleID int
-		err := db.QueryRow("SELECT title_id FROM movies WHERE id = $1", id).Scan(&titleID)
-		if err != nil {
-			jsonError(w, "Not found", 404)
-			return
-		}
-
-		_, err = db.Exec(`
-			UPDATE titles SET display_name = $1, start_year = $2, end_year = $3, imdb_id = $4, image_url = $5, updated_at = NOW()
-			WHERE id = $6
-		`, req.DisplayName, req.StartYear, req.EndYear, req.IMDbID, req.ImageURL, titleID)
-		if err != nil {
-			jsonError(w, "Update failed", 500)
-			return
-		}
-
-		movie, _ := getMovieByID(id)
-		jsonResponse(w, movie)
-
-	case "DELETE":
-		var titleID int
-		db.QueryRow("SELECT title_id FROM movies WHERE id = $1", id).Scan(&titleID)
-		db.Exec("DELETE FROM titles WHERE id = $1", titleID)
-		w.WriteHeader(204)
-
-	default:
-		w.WriteHeader(405)
-	}
-}
-
-// API Handlers - Shows
-
-func handleAPIShowsCreate(w http.ResponseWriter, r *http.Request) {
-	if readOnly(w, r) {
-		return
-	}
-	// POST blocked by readOnly
-
-	var req struct {
-		DisplayName string  `json:"display_name"`
-		StartYear   *int    `json:"start_year"`
-		EndYear     *int    `json:"end_year"`
-		IMDbID      *string `json:"imdb_id"`
-		ImageURL    *string `json:"image_url"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		jsonError(w, "Invalid JSON", 400)
-		return
-	}
-
-	tx, _ := db.Begin()
-	defer tx.Rollback()
-
-	var titleID int
-	err := tx.QueryRow(`
-		INSERT INTO titles (type, display_name, start_year, end_year, imdb_id, image_url)
-		VALUES ('show', $1, $2, $3, $4, $5) RETURNING id
-	`, req.DisplayName, req.StartYear, req.EndYear, req.IMDbID, req.ImageURL).Scan(&titleID)
-	if err != nil {
-		jsonError(w, "Failed to create title: "+err.Error(), 500)
-		return
-	}
-
-	var showID int
-	err = tx.QueryRow(`INSERT INTO shows (title_id) VALUES ($1) RETURNING id`, titleID).Scan(&showID)
-	if err != nil {
-		jsonError(w, "Failed to create show", 500)
-		return
-	}
-
-	tx.Commit()
-
-	show, _ := getShowByID(showID, false)
-	w.WriteHeader(201)
-	jsonResponse(w, show)
-}
-
-func handleAPIShow(w http.ResponseWriter, r *http.Request) {
-	if readOnly(w, r) {
-		return
-	}
-	path := strings.TrimPrefix(r.URL.Path, "/api/shows/")
-	parts := strings.Split(path, "/")
-
-	id, err := strconv.Atoi(parts[0])
-	if err != nil {
-		jsonError(w, "Invalid ID", 400)
-		return
-	}
-
-	// Handle /api/shows/:id/seasons
-	if len(parts) >= 2 && parts[1] == "seasons" {
-		handleShowSeasons(w, r, id)
-		return
-	}
-
-	switch r.Method {
-	case "GET":
-		show, err := getShowByID(id, true)
-		if err != nil {
-			jsonError(w, "Not found", 404)
-			return
-		}
-		maybeFetchImage(&show.Title)
-		maybeFetchEpisodes(&show)
-		go logEngagement(show.Title.TitleID, r.URL.Query().Get("source"))
-		jsonResponse(w, show)
-
-	case "PUT":
-		var req struct {
-			DisplayName string  `json:"display_name"`
-			StartYear   *int    `json:"start_year"`
-			EndYear     *int    `json:"end_year"`
-			IMDbID      *string `json:"imdb_id"`
-			ImageURL    *string `json:"image_url"`
-		}
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			jsonError(w, "Invalid JSON", 400)
-			return
-		}
-
-		var titleID int
-		err := db.QueryRow("SELECT title_id FROM shows WHERE id = $1", id).Scan(&titleID)
-		if err != nil {
-			jsonError(w, "Not found", 404)
-			return
-		}
-
-		_, err = db.Exec(`
-			UPDATE titles SET display_name = $1, start_year = $2, end_year = $3, imdb_id = $4, image_url = $5, updated_at = NOW()
-			WHERE id = $6
-		`, req.DisplayName, req.StartYear, req.EndYear, req.IMDbID, req.ImageURL, titleID)
-		if err != nil {
-			jsonError(w, "Update failed", 500)
-			return
-		}
-
-		show, _ := getShowByID(id, false)
-		jsonResponse(w, show)
-
-	case "DELETE":
-		var titleID int
-		db.QueryRow("SELECT title_id FROM shows WHERE id = $1", id).Scan(&titleID)
-		db.Exec("DELETE FROM titles WHERE id = $1", titleID)
-		w.WriteHeader(204)
-
-	default:
-		w.WriteHeader(405)
-	}
-}
-
-func handleShowSeasons(w http.ResponseWriter, r *http.Request, showID int) {
+// handleTitleSeasons handles /api/titles/:id/seasons
+func handleTitleSeasons(w http.ResponseWriter, r *http.Request, titleID int) {
 	if readOnly(w, r) {
 		return
 	}
 	switch r.Method {
 	case "GET":
-		rows, err := db.Query(`SELECT id, show_id, season FROM show_seasons WHERE show_id = $1 ORDER BY season`, showID)
+		rows, err := db.Query(`SELECT id, title_id, season FROM show_seasons WHERE title_id = $1 ORDER BY season`, titleID)
 		if err != nil {
 			jsonError(w, "Database error", 500)
 			return
@@ -2003,7 +1857,7 @@ func handleShowSeasons(w http.ResponseWriter, r *http.Request, showID int) {
 		var seasons []Season
 		for rows.Next() {
 			var s Season
-			rows.Scan(&s.SeasonID, &s.ShowID, &s.SeasonNumber)
+			rows.Scan(&s.SeasonID, &s.TitleID, &s.SeasonNumber)
 			seasons = append(seasons, s)
 		}
 		jsonResponse(w, seasons)
@@ -2019,15 +1873,15 @@ func handleShowSeasons(w http.ResponseWriter, r *http.Request, showID int) {
 
 		var seasonID int
 		err := db.QueryRow(`
-			INSERT INTO show_seasons (show_id, season) VALUES ($1, $2) RETURNING id
-		`, showID, req.SeasonNumber).Scan(&seasonID)
+			INSERT INTO show_seasons (title_id, season) VALUES ($1, $2) RETURNING id
+		`, titleID, req.SeasonNumber).Scan(&seasonID)
 		if err != nil {
 			jsonError(w, "Failed to create season: "+err.Error(), 500)
 			return
 		}
 
 		w.WriteHeader(201)
-		jsonResponse(w, Season{SeasonID: seasonID, ShowID: showID, SeasonNumber: req.SeasonNumber})
+		jsonResponse(w, Season{SeasonID: seasonID, TitleID: titleID, SeasonNumber: req.SeasonNumber})
 
 	default:
 		w.WriteHeader(405)
@@ -2058,7 +1912,7 @@ func handleAPISeason(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case "GET":
 		var s Season
-		err := db.QueryRow(`SELECT id, show_id, season FROM show_seasons WHERE id = $1`, id).Scan(&s.SeasonID, &s.ShowID, &s.SeasonNumber)
+		err := db.QueryRow(`SELECT id, title_id, season FROM show_seasons WHERE id = $1`, id).Scan(&s.SeasonID, &s.TitleID, &s.SeasonNumber)
 		if err != nil {
 			jsonError(w, "Not found", 404)
 			return
@@ -2189,101 +2043,7 @@ func handleAPIEpisode(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// API v2 Handlers
-
-func handleAPIV2Title(w http.ResponseWriter, r *http.Request) {
-	if r.Method != "GET" {
-		w.WriteHeader(405)
-		return
-	}
-
-	path := strings.TrimPrefix(r.URL.Path, "/api/v2/titles/")
-	parts := strings.SplitN(path, "/", 2)
-
-	titleID, err := strconv.Atoi(parts[0])
-	if err != nil {
-		jsonError(w, "title not found", 404)
-		return
-	}
-
-	// Delegate /api/v2/titles/:id/episodes
-	if len(parts) >= 2 && parts[1] == "episodes" {
-		handleAPIV2TitleEpisodes(w, r, titleID)
-		return
-	}
-
-	t, err := getTitleByID(titleID)
-	if err != nil {
-		jsonError(w, "title not found", 404)
-		return
-	}
-
-	layer := MCTitleLayer{
-		TitleID:     t.TitleID,
-		Kind:        t.Type,
-		IMDbID:      t.IMDbID,
-		DisplayName: t.DisplayName,
-		PosterURL:   t.ImageURL,
-		StartYear:   t.StartYear,
-		EndYear:     t.EndYear,
-		Genres:      t.Genres,
-		Rating:      t.AverageRating,
-		VoteCount:   t.NumVotes,
-	}
-	if layer.Genres == nil {
-		layer.Genres = []string{}
-	}
-
-	if t.Type == "show" {
-		var showID int
-		err := db.QueryRow(`SELECT id FROM shows WHERE title_id = $1`, titleID).Scan(&showID)
-		if err != nil {
-			jsonError(w, "title not found", 404)
-			return
-		}
-
-		rows, err := db.Query(`
-			SELECT ss.season, COUNT(se.id)
-			FROM show_seasons ss
-			LEFT JOIN show_episodes se ON se.season_id = ss.id
-			WHERE ss.show_id = $1
-			GROUP BY ss.season
-			ORDER BY ss.season
-		`, showID)
-		if err != nil {
-			jsonError(w, "database error", 500)
-			return
-		}
-		defer rows.Close()
-
-		var seasons []MCSeasonInfo
-		totalEpisodes := 0
-		for rows.Next() {
-			var si MCSeasonInfo
-			rows.Scan(&si.SeasonNumber, &si.EpisodeCount)
-			totalEpisodes += si.EpisodeCount
-			seasons = append(seasons, si)
-		}
-
-		isFinished := t.EndYear != nil
-		layer.Show = &MCShowInfo{
-			SeasonCount:  len(seasons),
-			EpisodeCount: totalEpisodes,
-			IsFinished:   isFinished,
-			Seasons:      seasons,
-		}
-		if layer.Show.Seasons == nil {
-			layer.Show.Seasons = []MCSeasonInfo{}
-		}
-	} else {
-		// Movie — expose runtime_minutes, show is null
-		layer.RuntimeMinutes = t.RuntimeMinutes
-	}
-
-	jsonResponse(w, layer)
-}
-
-func handleAPIV2TitleEpisodes(w http.ResponseWriter, r *http.Request, titleID int) {
+func handleAPITitleEpisodes(w http.ResponseWriter, r *http.Request, titleID int) {
 	var titleType string
 	err := db.QueryRow(`SELECT type FROM titles WHERE id = $1`, titleID).Scan(&titleType)
 	if err != nil {
@@ -2307,15 +2067,8 @@ func handleAPIV2TitleEpisodes(w http.ResponseWriter, r *http.Request, titleID in
 		return
 	}
 
-	var showID int
-	err = db.QueryRow(`SELECT id FROM shows WHERE title_id = $1`, titleID).Scan(&showID)
-	if err != nil {
-		jsonError(w, "title not found", 404)
-		return
-	}
-
 	var seasonID int
-	err = db.QueryRow(`SELECT id FROM show_seasons WHERE show_id = $1 AND season = $2`, showID, seasonNum).Scan(&seasonID)
+	err = db.QueryRow(`SELECT id FROM show_seasons WHERE title_id = $1 AND season = $2`, titleID, seasonNum).Scan(&seasonID)
 	if err != nil {
 		jsonError(w, "season not found", 404)
 		return
@@ -2351,100 +2104,63 @@ func getTitleByID(id int) (Title, error) {
 		SELECT id, type, display_name, start_year, end_year, imdb_id, image_url, tmdb_id,
 		       num_votes, average_rating, original_title, original_language,
 		       TO_CHAR(release_date, 'YYYY-MM-DD'), tmdb_popularity, runtime_minutes,
-		       origin_country, COALESCE(needs_backfill_tmdb, true), created_at, updated_at
+		       origin_country, COALESCE(needs_backfill_tmdb, true), episodes_checked_at,
+		       is_series_finished, created_at, updated_at,
+		       watch_providers, watch_providers_checked_at, networks, production_companies
 		FROM titles WHERE id = $1
 	`, id).Scan(&t.TitleID, &t.Type, &t.DisplayName, &t.StartYear, &t.EndYear, &t.IMDbID, &t.ImageURL, &t.TMDBID,
 		&t.NumVotes, &t.AverageRating, &t.OriginalTitle, &t.OriginalLanguage,
 		&t.ReleaseDate, &t.TMDBPopularity, &t.RuntimeMinutes,
-		&t.OriginCountry, &t.NeedsBackfillTMDB, &t.CreatedAt, &t.UpdatedAt)
+		&t.OriginCountry, &t.NeedsBackfillTMDB, &t.EpisodesCheckedAt,
+		&t.IsSeriesFinished, &t.CreatedAt, &t.UpdatedAt,
+		&t.WatchProviders, &t.WatchProvidersCheckedAt, &t.Networks, &t.ProductionCompanies)
 	if err == nil {
 		t.Genres = loadGenresForTitle(id)
 	}
 	return t, err
 }
 
-func getMovieByID(id int) (Movie, error) {
-	var m Movie
-	err := db.QueryRow(`
-		SELECT m.id, m.title_id, t.id, t.type, t.display_name, t.start_year, t.end_year, t.imdb_id, t.image_url, t.tmdb_id,
-		       t.num_votes, t.average_rating, t.original_title, t.original_language,
-		       TO_CHAR(t.release_date, 'YYYY-MM-DD'), t.tmdb_popularity, t.runtime_minutes,
-		       t.origin_country, COALESCE(t.needs_backfill_tmdb, true), t.created_at, t.updated_at
-		FROM movies m JOIN titles t ON m.title_id = t.id WHERE m.id = $1
-	`, id).Scan(&m.MovieID, &m.TitleID, &m.Title.TitleID, &m.Title.Type, &m.Title.DisplayName, &m.Title.StartYear, &m.Title.EndYear, &m.Title.IMDbID, &m.Title.ImageURL, &m.Title.TMDBID,
-		&m.Title.NumVotes, &m.Title.AverageRating, &m.Title.OriginalTitle, &m.Title.OriginalLanguage,
-		&m.Title.ReleaseDate, &m.Title.TMDBPopularity, &m.Title.RuntimeMinutes,
-		&m.Title.OriginCountry, &m.Title.NeedsBackfillTMDB, &m.Title.CreatedAt, &m.Title.UpdatedAt)
-	if err == nil {
-		m.Title.Genres = loadGenresForTitle(m.Title.TitleID)
+// loadSeasonsForTitle loads seasons and episodes for a show title in place.
+func loadSeasonsForTitle(t *Title) {
+	// Collect seasons first, then close rows before querying episodes.
+	rows, _ := db.Query(`SELECT id, title_id, season FROM show_seasons WHERE title_id = $1 ORDER BY season`, t.TitleID)
+	for rows.Next() {
+		var sn Season
+		rows.Scan(&sn.SeasonID, &sn.TitleID, &sn.SeasonNumber)
+		t.Seasons = append(t.Seasons, sn)
 	}
-	return m, err
-}
+	rows.Close()
 
-func getShowByID(id int, withSeasons bool) (Show, error) {
-	var s Show
-	err := db.QueryRow(`
-		SELECT s.id, s.title_id, t.id, t.type, t.display_name, t.start_year, t.end_year, t.imdb_id, t.image_url, t.tmdb_id,
-		       t.num_votes, t.average_rating, t.original_title, t.original_language,
-		       TO_CHAR(t.release_date, 'YYYY-MM-DD'), t.tmdb_popularity, t.runtime_minutes,
-		       t.origin_country, COALESCE(t.needs_backfill_tmdb, true), t.created_at, t.updated_at,
-		       t.episodes_checked_at
-		FROM shows s JOIN titles t ON s.title_id = t.id WHERE s.id = $1
-	`, id).Scan(&s.ShowID, &s.TitleID, &s.Title.TitleID, &s.Title.Type, &s.Title.DisplayName, &s.Title.StartYear, &s.Title.EndYear, &s.Title.IMDbID, &s.Title.ImageURL, &s.Title.TMDBID,
-		&s.Title.NumVotes, &s.Title.AverageRating, &s.Title.OriginalTitle, &s.Title.OriginalLanguage,
-		&s.Title.ReleaseDate, &s.Title.TMDBPopularity, &s.Title.RuntimeMinutes,
-		&s.Title.OriginCountry, &s.Title.NeedsBackfillTMDB, &s.Title.CreatedAt, &s.Title.UpdatedAt,
-		&s.Title.EpisodesCheckedAt)
-	if err != nil {
-		return s, err
-	}
-	s.Title.Genres = loadGenresForTitle(s.Title.TitleID)
-
-	if withSeasons {
-		// Collect seasons first, then close rows before querying episodes.
-		// Nested db.Query calls inside rows.Next() holds two connections
-		// simultaneously, which can exhaust the pool under concurrency.
-		rows, _ := db.Query(`SELECT id, show_id, season FROM show_seasons WHERE show_id = $1 ORDER BY season`, id)
-		for rows.Next() {
-			var sn Season
-			rows.Scan(&sn.SeasonID, &sn.ShowID, &sn.SeasonNumber)
-			s.Seasons = append(s.Seasons, sn)
+	// Now load episodes for each season (one connection at a time)
+	for i, sn := range t.Seasons {
+		epRows, _ := db.Query(`SELECT id, season_id, episode, display_name, image_url, TO_CHAR(air_date, 'YYYY-MM-DD'), runtime_minutes, synopsis FROM show_episodes WHERE season_id = $1 ORDER BY episode`, sn.SeasonID)
+		for epRows.Next() {
+			var e Episode
+			epRows.Scan(&e.EpisodeID, &e.SeasonID, &e.EpisodeNumber, &e.DisplayName, &e.ImageURL, &e.AirDate, &e.RuntimeMinutes, &e.Synopsis)
+			t.Seasons[i].Episodes = append(t.Seasons[i].Episodes, e)
 		}
-		rows.Close()
-
-		// Now load episodes for each season (one connection at a time)
-		for i, sn := range s.Seasons {
-			epRows, _ := db.Query(`SELECT id, season_id, episode, display_name, image_url, TO_CHAR(air_date, 'YYYY-MM-DD'), runtime_minutes, synopsis FROM show_episodes WHERE season_id = $1 ORDER BY episode`, sn.SeasonID)
-			for epRows.Next() {
-				var e Episode
-				epRows.Scan(&e.EpisodeID, &e.SeasonID, &e.EpisodeNumber, &e.DisplayName, &e.ImageURL, &e.AirDate, &e.RuntimeMinutes, &e.Synopsis)
-				s.Seasons[i].Episodes = append(s.Seasons[i].Episodes, e)
-			}
-			epRows.Close()
-		}
-
-		// Derive is_series_finished and is_season_finished flags
-		finished := s.Title.EndYear != nil
-		s.IsSeriesFinished = &finished
-
-		maxSeason := 0
-		for _, sn := range s.Seasons {
-			if sn.SeasonNumber > maxSeason {
-				maxSeason = sn.SeasonNumber
-			}
-		}
-		for i := range s.Seasons {
-			var sf bool
-			if s.Title.EndYear != nil {
-				sf = true
-			} else {
-				sf = s.Seasons[i].SeasonNumber < maxSeason
-			}
-			s.Seasons[i].IsSeasonFinished = &sf
-		}
+		epRows.Close()
 	}
 
-	return s, nil
+	// Derive is_series_finished and is_season_finished flags
+	finished := t.EndYear != nil
+	t.IsSeriesFinished = &finished
+
+	maxSeason := 0
+	for _, sn := range t.Seasons {
+		if sn.SeasonNumber > maxSeason {
+			maxSeason = sn.SeasonNumber
+		}
+	}
+	for i := range t.Seasons {
+		var sf bool
+		if t.EndYear != nil {
+			sf = true
+		} else {
+			sf = t.Seasons[i].SeasonNumber < maxSeason
+		}
+		t.Seasons[i].IsSeasonFinished = &sf
+	}
 }
 
 // Genre and view tracking helpers
@@ -2654,7 +2370,6 @@ func buildCarouselCache() {
 	rows, err := db.Query(`
 		WITH ranked AS (
 			SELECT t.id, t.type, t.display_name, t.start_year, t.end_year, t.image_url,
-				m.id as movie_id, s.id as show_id,
 				t.average_rating, t.num_votes, t.tmdb_popularity,
 				g.name as genre,
 				COALESCE((SELECT COUNT(*) FROM title_views tv WHERE tv.title_id = t.id), 0) as engagement_count,
@@ -2663,8 +2378,6 @@ func buildCarouselCache() {
 					ORDER BY t.average_rating DESC NULLS LAST, t.num_votes DESC NULLS LAST
 				) as rn
 			FROM titles t
-			LEFT JOIN movies m ON m.title_id = t.id
-			LEFT JOIN shows s ON s.title_id = t.id
 			JOIN title_genres tg ON tg.title_id = t.id
 			JOIN genres g ON tg.genre_id = g.id
 			WHERE t.image_url IS NOT NULL
@@ -2672,7 +2385,7 @@ func buildCarouselCache() {
 				AND t.num_votes >= 5000
 				AND t.average_rating IS NOT NULL
 		)
-		SELECT id, type, display_name, start_year, end_year, image_url, movie_id, show_id,
+		SELECT id, type, display_name, start_year, end_year, image_url,
 			average_rating, num_votes, tmdb_popularity, genre, engagement_count
 		FROM ranked
 		WHERE rn <= 30
@@ -2695,7 +2408,7 @@ func buildCarouselCache() {
 		var d DiscoverTitle
 		var genre string
 		rows.Scan(&d.TitleID, &d.Type, &d.DisplayName, &d.StartYear, &d.EndYear, &d.ImageURL,
-			&d.MovieID, &d.ShowID, &d.AverageRating, &d.NumVotes, &d.TMDBPopularity, &genre, &d.EngagementCount)
+			&d.AverageRating, &d.NumVotes, &d.TMDBPopularity, &genre, &d.EngagementCount)
 		entries = append(entries, entry{d, d.Type + ":" + genre})
 		uniqueIDs[d.TitleID] = true
 	}
@@ -2805,11 +2518,9 @@ func fetchDiscoverTitles(sortBy, typeFilter, langFilter, genreFilter, countryFil
 
 	query := fmt.Sprintf(`
 		SELECT t.id, t.type, t.display_name, t.start_year, t.end_year, t.image_url,
-		       m.id, s.id, t.average_rating, t.num_votes, t.tmdb_popularity,
+		       t.average_rating, t.num_votes, t.tmdb_popularity,
 		       COALESCE((SELECT COUNT(*) FROM title_views tv WHERE tv.title_id = t.id), 0)
 		FROM titles t
-		LEFT JOIN movies m ON m.title_id = t.id
-		LEFT JOIN shows s ON s.title_id = t.id
 		%s
 		ORDER BY %s
 		LIMIT %d OFFSET %d
@@ -2827,7 +2538,7 @@ func fetchDiscoverTitles(sortBy, typeFilter, langFilter, genreFilter, countryFil
 	for rows.Next() {
 		var d DiscoverTitle
 		rows.Scan(&d.TitleID, &d.Type, &d.DisplayName, &d.StartYear, &d.EndYear, &d.ImageURL,
-			&d.MovieID, &d.ShowID, &d.AverageRating, &d.NumVotes, &d.TMDBPopularity, &d.EngagementCount)
+			&d.AverageRating, &d.NumVotes, &d.TMDBPopularity, &d.EngagementCount)
 		titles = append(titles, d)
 		titleIDs = append(titleIDs, d.TitleID)
 	}
@@ -2875,12 +2586,10 @@ func getCollectionTitles(collID int, strategy string, filterParamsJSON []byte) [
 func fetchStaticCollectionTitles(collID int) []DiscoverTitle {
 	rows, err := db.Query(`
 		SELECT t.id, t.type, t.display_name, t.start_year, t.end_year, t.image_url,
-		       m.id, s.id, t.average_rating, t.num_votes, t.tmdb_popularity,
+		       t.average_rating, t.num_votes, t.tmdb_popularity,
 		       COALESCE((SELECT COUNT(*) FROM title_views tv WHERE tv.title_id = t.id), 0)
 		FROM collection_titles ct
 		JOIN titles t ON ct.title_id = t.id
-		LEFT JOIN movies m ON m.title_id = t.id
-		LEFT JOIN shows s ON s.title_id = t.id
 		WHERE ct.collection_id = $1
 		ORDER BY ct.rank
 	`, collID)
@@ -2895,7 +2604,7 @@ func fetchStaticCollectionTitles(collID int) []DiscoverTitle {
 	for rows.Next() {
 		var d DiscoverTitle
 		rows.Scan(&d.TitleID, &d.Type, &d.DisplayName, &d.StartYear, &d.EndYear, &d.ImageURL,
-			&d.MovieID, &d.ShowID, &d.AverageRating, &d.NumVotes, &d.TMDBPopularity, &d.EngagementCount)
+			&d.AverageRating, &d.NumVotes, &d.TMDBPopularity, &d.EngagementCount)
 		titles = append(titles, d)
 		titleIDs = append(titleIDs, d.TitleID)
 	}
