@@ -1,5 +1,9 @@
 # Binaries
 backend/mediacanon
+backend/sync
+backend/sync-images
+backend/sync-imdb
+backend/sync-mediacanon
 *.exe
 
 # Environment
