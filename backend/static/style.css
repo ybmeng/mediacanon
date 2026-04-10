@@ -291,6 +291,74 @@ code {
 .meta dt { color: var(--muted); }
 .meta dd { margin: 0; }
 
+/* Streaming decorators */
+.original-badge {
+    display: inline-block;
+    font-size: 0.7rem;
+    font-weight: 600;
+    padding: 0.25rem 0.6rem;
+    border-radius: 999px;
+    background: #dc2626;
+    color: white;
+    vertical-align: middle;
+    margin-left: 0.5rem;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+}
+
+.watch-on {
+    margin-bottom: 1.5rem;
+}
+.watch-on h3 {
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--muted);
+    margin: 0 0 0.5rem 0;
+    font-weight: 600;
+}
+.watch-on .providers {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+}
+.watch-on .provider {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.35rem 0.75rem 0.35rem 0.35rem;
+    background: var(--border);
+    border-radius: 8px;
+    font-size: 0.85rem;
+}
+.watch-on .provider img {
+    width: 32px;
+    height: 32px;
+    border-radius: 6px;
+    object-fit: cover;
+}
+
+.production-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+}
+.production-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.85rem;
+}
+.production-logo {
+    height: 18px;
+    width: auto;
+    max-width: 60px;
+    object-fit: contain;
+    background: white;
+    padding: 2px;
+    border-radius: 3px;
+}
+
 .btn-edit {
     padding: 0.5rem 1rem;
     background: var(--border);

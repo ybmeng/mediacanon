@@ -189,6 +189,80 @@ type MCTitleLayer struct {
 	ProductionCompanies *json.RawMessage `json:"production_companies,omitempty"`
 }
 
+// Streaming decorator types for title detail template
+
+type WatchProvider struct {
+	ProviderID   int    `json:"provider_id"`
+	ProviderName string `json:"provider_name"`
+	LogoPath     string `json:"logo_path"`
+}
+
+type ProductionCompany struct {
+	ID       int    `json:"id"`
+	Name     string `json:"name"`
+	LogoPath string `json:"logo_path"`
+}
+
+type tmdbNetwork struct {
+	ID   int    `json:"id"`
+	Name string `json:"name"`
+}
+
+type TitleView struct {
+	Title
+	WatchOn               []WatchProvider
+	OriginalBadge         string
+	ProductionCompanyList []ProductionCompany
+}
+
+// Known streaming networks that get an "Original" badge.
+var streamingNetworkNames = map[int]string{
+	213:  "Netflix",
+	2739: "Disney+",
+	2552: "Apple TV",
+	1024: "Prime Video",
+	49:   "HBO",
+	453:  "Hulu",
+}
+
+// buildTitleView parses the title's JSONB streaming fields and returns a
+// view struct with display-ready data for the template.
+func buildTitleView(t Title) TitleView {
+	view := TitleView{Title: t}
+
+	if t.WatchProviders != nil {
+		var regions map[string]struct {
+			Flatrate []WatchProvider `json:"flatrate"`
+		}
+		if err := json.Unmarshal(*t.WatchProviders, &regions); err == nil {
+			if us, ok := regions["US"]; ok {
+				view.WatchOn = us.Flatrate
+			}
+		}
+	}
+
+	if t.Networks != nil {
+		var nets []tmdbNetwork
+		if err := json.Unmarshal(*t.Networks, &nets); err == nil {
+			for _, n := range nets {
+				if name, ok := streamingNetworkNames[n.ID]; ok {
+					view.OriginalBadge = name + " Original"
+					break
+				}
+			}
+		}
+	}
+
+	if t.ProductionCompanies != nil {
+		var pcs []ProductionCompany
+		if err := json.Unmarshal(*t.ProductionCompanies, &pcs); err == nil {
+			view.ProductionCompanyList = pcs
+		}
+	}
+
+	return view
+}
+
 type MCShowInfo struct {
 	SeasonCount  int            `json:"season_count"`
 	EpisodeCount int            `json:"episode_count"`
@@ -1572,7 +1646,8 @@ func handleTitlePage(w http.ResponseWriter, r *http.Request) {
 
 	go logEngagement(title.TitleID, r.URL.Query().Get("source"))
 
-	tmpls["title"].ExecuteTemplate(w, "base", title)
+	view := buildTitleView(title)
+	tmpls["title"].ExecuteTemplate(w, "base", view)
 }
 
 func handleAddPage(w http.ResponseWriter, r *http.Request) {

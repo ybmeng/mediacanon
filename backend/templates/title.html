@@ -1,0 +1,75 @@
+{{define "body"}}
+<article class="detail" data-type="{{.Type}}" data-id="{{.TitleID}}">
+    <header>
+        {{if .ImageURL}}<img src="{{derefStr .ImageURL}}" alt="" class="poster">{{end}}
+        <div>
+            <h1>{{.DisplayName}}{{if .OriginalBadge}} <span class="original-badge">{{.OriginalBadge}}</span>{{end}}</h1>
+            {{if .StartYear}}<p class="year">{{derefInt .StartYear}}{{if eq .Type "show"}}{{if .EndYear}}&ndash;{{derefInt .EndYear}}{{else}}&ndash;{{end}}{{end}}</p>{{end}}
+            {{if .Genres}}<div class="genre-tags">{{range .Genres}}<span class="genre-tag">{{.}}</span>{{end}}{{if .OriginalLanguage}}<span class="genre-tag lang-tag">{{langDisplay (derefStr .OriginalLanguage)}}</span>{{end}}{{if .OriginCountry}}<span class="genre-tag country-tag">{{countryDisplay (derefStr .OriginCountry)}}</span>{{end}}</div>{{end}}
+        </div>
+    </header>
+
+    {{if .WatchOn}}
+    <section class="watch-on">
+        <h3>Watch on</h3>
+        <div class="providers">
+            {{range .WatchOn}}
+            <div class="provider" title="{{.ProviderName}}">
+                {{if .LogoPath}}<img src="https://image.tmdb.org/t/p/original{{.LogoPath}}" alt="{{.ProviderName}}">{{end}}
+                <span>{{.ProviderName}}</span>
+            </div>
+            {{end}}
+        </div>
+    </section>
+    {{end}}
+
+    <section class="meta">
+        <dl>
+            {{if .IMDbID}}<dt>IMDb</dt><dd><a href="https://imdb.com/title/{{derefStr .IMDbID}}">{{derefStr .IMDbID}}</a></dd>{{end}}
+            {{if .ProductionCompanyList}}<dt>Production</dt><dd class="production-list">{{range .ProductionCompanyList}}<span class="production-item">{{if .LogoPath}}<img src="https://image.tmdb.org/t/p/original{{.LogoPath}}" alt="" class="production-logo">{{end}}{{.Name}}</span>{{end}}</dd>{{end}}
+        </dl>
+    </section>
+
+    {{if eq .Type "show"}}
+    <section class="seasons">
+        <div class="seasons-header">
+            <h2>Seasons</h2>
+            {{if .Seasons}}
+            <div class="season-filter">
+                <button class="season-btn active" data-season="all">All</button>
+                {{range .Seasons}}
+                <button class="season-btn" data-season="{{.SeasonNumber}}">S{{.SeasonNumber}} ({{len .Episodes}})</button>
+                {{end}}
+            </div>
+            {{end}}
+        </div>
+        {{if .Seasons}}
+        {{range .Seasons}}
+        <div class="season" data-season-id="{{.SeasonID}}" data-season-num="{{.SeasonNumber}}">
+            <h3>Season {{.SeasonNumber}}</h3>
+            <ul class="episode-list">
+            {{range .Episodes}}
+                <li data-episode-id="{{.EpisodeID}}">
+                    {{if .ImageURL}}<img src="{{derefStr .ImageURL}}" alt="" class="ep-thumb">{{end}}
+                    <span class="ep-num">E{{.EpisodeNumber}}</span>
+                    <span class="ep-title">{{if .DisplayName}}{{derefStr .DisplayName}}{{else}}<em>Untitled</em>{{end}}</span>
+                    <span class="ep-meta">{{if .AirDate}}{{derefStr .AirDate}}{{end}}{{if .RuntimeMinutes}} · {{derefInt .RuntimeMinutes}}m{{end}}</span>
+                    {{if .Synopsis}}<span class="ep-synopsis">{{derefStr .Synopsis}}</span>{{end}}
+                </li>
+            {{end}}
+            </ul>
+        </div>
+        {{end}}
+        {{else}}
+        <p>No seasons yet.</p>
+        {{end}}
+    </section>
+    {{end}}
+
+    <section class="api-link">
+        <code>GET /api/titles/{{.TitleID}}</code>
+    </section>
+</article>
+{{end}}
+
+{{template "base" .}}
