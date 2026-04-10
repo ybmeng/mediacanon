@@ -41,7 +41,7 @@
         {{if .ActiveCollection.Description}}<p class="section-desc">{{.ActiveCollection.Description}}</p>{{end}}
         <div class="poster-grid">
             {{range .CollectionTitles}}
-            <a href="{{if .MovieID}}/movies/{{derefInt .MovieID}}{{else if .ShowID}}/shows/{{derefInt .ShowID}}{{else}}/titles{{end}}?source=collection-{{$.ActiveCollection.Slug}}" class="poster-card">
+            <a href="/titles/{{.TitleID}}?source=collection-{{$.ActiveCollection.Slug}}" class="poster-card">
                 {{if .ImageURL}}<img src="{{derefStr .ImageURL}}" alt="{{.DisplayName}}" loading="lazy">{{else}}<div class="poster-placeholder">{{.DisplayName}}</div>{{end}}
                 <div class="poster-stats">
                     {{if .AverageRating}}<span class="poster-rating-badge">{{printf "%.1f" (derefFloat .AverageRating)}}</span>{{end}}
@@ -92,7 +92,7 @@
         {{if .FilteredTitles}}
         <div class="poster-grid" id="discover-grid">
             {{range .FilteredTitles}}
-            <a href="{{if .MovieID}}/movies/{{derefInt .MovieID}}{{else if .ShowID}}/shows/{{derefInt .ShowID}}{{else}}/titles{{end}}?source=discover" class="poster-card">
+            <a href="/titles/{{.TitleID}}?source=discover" class="poster-card">
                 {{if .ImageURL}}<img src="{{derefStr .ImageURL}}" alt="{{.DisplayName}}" loading="lazy">{{else}}<div class="poster-placeholder">{{.DisplayName}}</div>{{end}}
                 <div class="poster-stats">
                     {{if .AverageRating}}<span class="poster-rating-badge">{{printf "%.1f" (derefFloat .AverageRating)}}</span>{{end}}
@@ -131,7 +131,7 @@
             <div class="carousel-track">
                 {{$slug := .Slug}}
                 {{range .Titles}}
-                <a href="{{if .MovieID}}/movies/{{derefInt .MovieID}}{{else if .ShowID}}/shows/{{derefInt .ShowID}}{{else}}/titles{{end}}?source=collection-{{$slug}}" class="poster-card">
+                <a href="/titles/{{.TitleID}}?source=collection-{{$slug}}" class="poster-card">
                     {{if .ImageURL}}<img src="{{derefStr .ImageURL}}" alt="{{.DisplayName}}" loading="lazy">{{else}}<div class="poster-placeholder">{{.DisplayName}}</div>{{end}}
                     <div class="poster-stats">
                         {{if .AverageRating}}<span class="poster-rating-badge">{{printf "%.1f" (derefFloat .AverageRating)}}</span>{{end}}
@@ -215,9 +215,7 @@
                     return;
                 }
                 data.titles.forEach(function(t) {
-                    var href = '/titles';
-                    if (t.movie_id) href = '/movies/' + t.movie_id + '?source=discover';
-                    else if (t.show_id) href = '/shows/' + t.show_id + '?source=discover';
+                    var href = '/titles/' + t.title_id + '?source=discover';
                     var card = document.createElement('a');
                     card.href = href;
                     card.className = 'poster-card';

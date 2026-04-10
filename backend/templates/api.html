@@ -61,7 +61,7 @@
 }</pre>
 
         <h3>TitleSearchResult</h3>
-        <p>Returned from search endpoints.</p>
+        <p>Returned from search endpoints. <code>title_id</code> is the sole identity &mdash; no movie_id or show_id.</p>
         <pre>{
   "title_id": number,
   "type": "movie" | "show",
@@ -73,7 +73,6 @@
   "num_votes": number | null,
   "average_rating": number | null,
   "original_language": string | null,
-  "origin_country": string | null,
   "release_date": string | null
 }</pre>
     </section>
@@ -82,10 +81,10 @@
         <h2>Title &amp; Episodes</h2>
         <p>The primary API. <code>title_id</code> is the sole public identity &mdash; no internal IDs exposed.</p>
 
-        <h3>GET /api/v2/titles/:titleId</h3>
+        <h3>GET /api/titles/:titleId</h3>
         <p>Get a title by title_id. Returns MCTitleLayer.</p>
         <p><strong>Response (show):</strong></p>
-        <pre>GET /api/v2/titles/311356
+        <pre>GET /api/titles/311356
 
 {
   "title_id": 311356,
@@ -113,7 +112,7 @@
   }
 }</pre>
         <p><strong>Response (movie):</strong></p>
-        <pre>GET /api/v2/titles/105378
+        <pre>GET /api/titles/105378
 
 {
   "title_id": 105378,
@@ -130,14 +129,14 @@
   "show": null
 }</pre>
 
-        <h3>GET /api/v2/titles/:titleId/episodes?season=N</h3>
+        <h3>GET /api/titles/:titleId/episodes?season=N</h3>
         <p>Get all episodes for a season. Returns MCEpisodeLayer[], ordered by episode number. Complete season snapshot &mdash; no pagination.</p>
         <table>
             <tr><th>Param</th><th>Type</th><th>Description</th></tr>
             <tr><td><code>season</code></td><td>number</td><td>Season number (required)</td></tr>
         </table>
         <p><strong>Response:</strong></p>
-        <pre>GET /api/v2/titles/311356/episodes?season=1
+        <pre>GET /api/titles/311356/episodes?season=1
 
 [
   {
@@ -277,7 +276,6 @@
       "display_name": "Parasite",
       "start_year": 2019,
       "image_url": "https://image.tmdb.org/t/p/w500/...",
-      "movie_id": 76841,
       "average_rating": 8.5,
       "num_votes": 940000,
       "tmdb_popularity": 19.4,
@@ -336,8 +334,8 @@
 
         <h3>cURL</h3>
         <pre># Title &amp; Episodes
-curl https://mediacanon.org/api/v2/titles/311356
-curl https://mediacanon.org/api/v2/titles/311356/episodes?season=1
+curl https://mediacanon.org/api/titles/311356
+curl https://mediacanon.org/api/titles/311356/episodes?season=1
 
 # Search
 curl https://mediacanon.org/api/titles?q=matrix
@@ -354,20 +352,20 @@ curl https://mediacanon.org/api/collections/classic-anime</pre>
 
         <h3>JavaScript</h3>
         <pre>// Get title details
-const title = await fetch('https://mediacanon.org/api/v2/titles/311356').then(r => r.json());
+const title = await fetch('https://mediacanon.org/api/titles/311356').then(r => r.json());
 console.log(title.display_name, title.kind);
 
 // Get episodes for season 1
-const episodes = await fetch('https://mediacanon.org/api/v2/titles/311356/episodes?season=1').then(r => r.json());
+const episodes = await fetch('https://mediacanon.org/api/titles/311356/episodes?season=1').then(r => r.json());
 episodes.forEach(ep => console.log(ep.episode_number, ep.display_name));</pre>
 
         <h3>Python</h3>
         <pre>import requests
 
-title = requests.get('https://mediacanon.org/api/v2/titles/311356').json()
+title = requests.get('https://mediacanon.org/api/titles/311356').json()
 print(title['display_name'], title['kind'])
 
-episodes = requests.get('https://mediacanon.org/api/v2/titles/311356/episodes?season=1').json()
+episodes = requests.get('https://mediacanon.org/api/titles/311356/episodes?season=1').json()
 for ep in episodes:
     print(ep['episode_number'], ep['display_name'])</pre>
     </section>

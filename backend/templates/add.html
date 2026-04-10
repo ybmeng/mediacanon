@@ -51,8 +51,8 @@ document.getElementById('add-form').onsubmit = async (e) => {
         image_url: form.image_url.value || null
     };
 
-    const endpoint = type === 'movie' ? '/api/movies' : '/api/shows';
-    const res = await fetch(endpoint, {
+    data.type = type;
+    const res = await fetch('/api/titles', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify(data)
@@ -60,7 +60,7 @@ document.getElementById('add-form').onsubmit = async (e) => {
 
     if (res.ok) {
         const result = await res.json();
-        location.href = type === 'movie' ? '/movies/' + result.id : '/shows/' + result.id;
+        location.href = '/titles/' + result.title_id;
     } else {
         const err = await res.json();
         alert('Error: ' + err.error);

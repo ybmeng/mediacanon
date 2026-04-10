@@ -26,11 +26,7 @@
     <li>
         {{if .ImageURL}}<img src="{{.ImageURL}}" alt="" class="thumb">{{end}}
         <div class="info">
-            {{if eq .Type "movie"}}
-            <a href="/movies/{{.MovieID}}?source=search">{{.DisplayName}}</a>
-            {{else}}
-            <a href="/shows/{{.ShowID}}?source=search">{{.DisplayName}}</a>
-            {{end}}
+            <a href="/titles/{{.TitleID}}?source=search">{{.DisplayName}}</a>
             {{if .StartYear}}<span class="year">({{derefInt .StartYear}}{{if .EndYear}}&ndash;{{derefInt .EndYear}}{{else if eq .Type "show"}}&ndash;{{end}})</span>{{end}}
             <span class="chip chip-{{.Type}}">{{.Type}}</span>
             {{if .OriginalLanguage}}<span class="chip chip-lang">{{langDisplay .OriginalLanguage}}</span>{{end}}

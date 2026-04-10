@@ -62,15 +62,14 @@ func main() {
 
 	// Get all shows with IMDb IDs
 	query := `
-		SELECT s.id, t.imdb_id, t.display_name
-		FROM shows s
-		JOIN titles t ON s.title_id = t.id
-		WHERE t.imdb_id IS NOT NULL AND t.imdb_id != ''
+		SELECT t.id, t.imdb_id, t.display_name
+		FROM titles t
+		WHERE t.type = 'show' AND t.imdb_id IS NOT NULL AND t.imdb_id != ''
 	`
 	if *skipSynced {
 		query += ` AND t.image_url IS NULL`
 	}
-	query += ` ORDER BY s.id`
+	query += ` ORDER BY t.id`
 	if *limit > 0 {
 		query += fmt.Sprintf(" LIMIT %d", *limit)
 	}
@@ -129,7 +128,7 @@ func main() {
 		elapsed.Round(time.Second), synced, skipped, errors, requestCount)
 }
 
-func syncShow(db *sql.DB, showID int, imdbID, name string) error {
+func syncShow(db *sql.DB, titleID int, imdbID, name string) error {
 	// Get TMDB ID and poster
 	tmdbID, posterURL, origLang, releaseDate, originCountry, popularity, err := fetchTMDBShow(imdbID)
 	if err != nil {
@@ -172,9 +171,9 @@ func syncShow(db *sql.DB, showID int, imdbID, name string) error {
 		SELECT e.id, ss.season, e.episode
 		FROM show_episodes e
 		JOIN show_seasons ss ON e.season_id = ss.id
-		WHERE ss.show_id = $1
+		WHERE ss.title_id = $1
 		ORDER BY ss.season, e.episode
-	`, showID)
+	`, titleID)
 	if err != nil {
 		return err
 	}
@@ -212,7 +211,7 @@ func syncShow(db *sql.DB, showID int, imdbID, name string) error {
 	}
 
 	// Mark episodes as checked so on-demand fetch doesn't redo this work
-	db.Exec(`UPDATE titles SET episodes_checked_at = NOW() WHERE id = (SELECT title_id FROM shows WHERE id = $1)`, showID)
+	db.Exec(`UPDATE titles SET episodes_checked_at = NOW() WHERE id = $1`, titleID)
 
 	return nil
 }
