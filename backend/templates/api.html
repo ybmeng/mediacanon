@@ -34,11 +34,15 @@
   "start_year": number | null,
   "end_year": number | null,
   "genres": string[],
-  "rating": number | null,          // IMDb rating (0-10)
-  "vote_count": number | null,      // IMDb vote count
-  "runtime_minutes": number | null,  // Movies only
-  "show": MCShowInfo | null          // Shows only
+  "rating": number | null,                // IMDb rating (0-10)
+  "vote_count": number | null,            // IMDb vote count
+  "runtime_minutes": number | null,       // Movies only
+  "show": MCShowInfo | null,              // Shows only
+  "watch_providers": WatchProviders | null,
+  "networks": Network[] | null,           // Shows only
+  "production_companies": ProductionCompany[] | null
 }</pre>
+        <p class="note">The streaming decorator fields (<code>watch_providers</code>, <code>networks</code>, <code>production_companies</code>) are sourced from TMDB and populated lazily on first title view, then refreshed every 7 days. They may be <code>null</code> if the title has never been viewed, or <code>{}</code>/<code>[]</code> if TMDB has no data.</p>
 
         <h3>MCShowInfo</h3>
         <pre>{
@@ -48,6 +52,55 @@
   "seasons": [
     { "season_number": number, "episode_count": number }
   ]
+}</pre>
+
+        <h3>WatchProviders</h3>
+        <p>Region-keyed availability map from TMDB. Top-level keys are ISO 3166-1 alpha-2 country codes (e.g. <code>"US"</code>, <code>"GB"</code>, <code>"JP"</code>). Each region may contain any of the offer-type arrays below; absent keys mean "not available under that offer type in that region".</p>
+        <pre>{
+  "US": {
+    "flatrate": WatchProvider[],    // Subscription streaming
+    "rent":     WatchProvider[],    // Paid rental
+    "buy":      WatchProvider[],    // Paid purchase
+    "ads":      WatchProvider[],    // Free with ads
+    "free":     WatchProvider[]     // Free (no ads)
+  },
+  "GB": { ... },
+  ...
+}</pre>
+
+        <h3>WatchProvider</h3>
+        <pre>{
+  "provider_id": number,
+  "provider_name": string,          // "Netflix", "Disney Plus", ...
+  "logo_path": string,              // Prepend https://image.tmdb.org/t/p/original
+  "display_priority": number        // Lower = higher priority
+}</pre>
+
+        <h3>Network</h3>
+        <p>Commissioning network or streamer for a show. Shows only &mdash; always <code>null</code> for movies. Use the <code>id</code> field to detect streaming "Originals" (see table below).</p>
+        <pre>{
+  "id": number,
+  "name": string,
+  "logo_path": string | null,       // Prepend https://image.tmdb.org/t/p/original
+  "origin_country": string          // ISO 3166-1 alpha-2
+}</pre>
+        <p>Known streaming-service network IDs for "Netflix Original"-style detection:</p>
+        <table>
+            <tr><th>ID</th><th>Network</th></tr>
+            <tr><td><code>213</code></td><td>Netflix</td></tr>
+            <tr><td><code>2739</code></td><td>Disney+</td></tr>
+            <tr><td><code>2552</code></td><td>Apple TV+</td></tr>
+            <tr><td><code>1024</code></td><td>Prime Video</td></tr>
+            <tr><td><code>49</code></td><td>HBO</td></tr>
+            <tr><td><code>453</code></td><td>Hulu</td></tr>
+        </table>
+
+        <h3>ProductionCompany</h3>
+        <pre>{
+  "id": number,
+  "name": string,
+  "logo_path": string | null,       // Prepend https://image.tmdb.org/t/p/original
+  "origin_country": string
 }</pre>
 
         <h3>MCEpisodeLayer</h3>
@@ -109,7 +162,43 @@
       { "season_number": 4, "episode_count": 13 },
       { "season_number": 5, "episode_count": 16 }
     ]
-  }
+  },
+  "watch_providers": {
+    "US": {
+      "flatrate": [
+        {
+          "provider_id": 8,
+          "provider_name": "Netflix",
+          "logo_path": "/pbpMk2JmcoNnQwx5JGpXngfoWtp.jpg",
+          "display_priority": 0
+        }
+      ],
+      "buy": [
+        {
+          "provider_id": 2,
+          "provider_name": "Apple TV",
+          "logo_path": "/peURlLlr8jggOwK53fJ5wdQl05y.jpg",
+          "display_priority": 2
+        }
+      ]
+    }
+  },
+  "networks": [
+    {
+      "id": 174,
+      "name": "AMC",
+      "logo_path": "/alqLicR1ZMHMaZGP3xRQxn9sq7p.png",
+      "origin_country": "US"
+    }
+  ],
+  "production_companies": [
+    {
+      "id": 11073,
+      "name": "Sony Pictures Television",
+      "logo_path": "/A7TKdAOpfHCCvqzgJkm4EXHHFr0.png",
+      "origin_country": "US"
+    }
+  ]
 }</pre>
         <p><strong>Response (movie):</strong></p>
         <pre>GET /api/titles/105378
